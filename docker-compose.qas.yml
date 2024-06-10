@@ -1,0 +1,11 @@
+services:
+    skribble-learn-api:
+        platform: linux/amd64
+        image: 396192154208.dkr.ecr.ap-southeast-1.amazonaws.com/skribble-learn-api-qas:1.0.4
+        cap_add:
+            - SYS_PTRACE
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                env: qas
