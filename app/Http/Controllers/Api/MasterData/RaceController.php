@@ -25,7 +25,7 @@ class RaceController extends Controller
     {
         $input = $request->validated();
 
-        $data = $this->raceService->getAllPaginatedRaces($input);
+        $data = $this->raceService->getAllPaginated($input);
 
         return (new ApiResponse())
             ->setMessage(__('api.common.success'))
@@ -48,7 +48,7 @@ class RaceController extends Controller
     {
         $input = $request->validated();
 
-        $master_race = $this->raceService->createRace($input);
+        $master_race = $this->raceService->create($input);
 
         return (new ApiResponse())
             ->setMessage(__('api.common.success'))
@@ -61,7 +61,7 @@ class RaceController extends Controller
     {
         $input = $request->validated();
 
-        $master_race = $this->raceService->updateRace($master_race, $input);
+        $master_race = $this->raceService->update($master_race, $input);
 
         return (new ApiResponse())
             ->setMessage(__('api.common.success'))
@@ -72,7 +72,7 @@ class RaceController extends Controller
 
     public function destroy(Race $master_race): JsonResponse
     {
-        $this->raceService->deleteRace($master_race);
+        $this->raceService->delete($master_race);
 
         return (new ApiResponse())
             ->setMessage(__('api.common.success'))

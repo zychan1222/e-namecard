@@ -15,7 +15,7 @@ beforeEach(function () {
     $this->race_table_name = resolve(Race::class)->getTable();
 });
 
-test('getAllPaginatedRaces()', function () {
+test('getAllPaginated()', function () {
     $first_race = Race::factory()->create([
         'name' => 'English'
     ]);
@@ -29,7 +29,7 @@ test('getAllPaginatedRaces()', function () {
     ]);
 
     //Filter by partial name = English
-    $response = $this->masterRaceService->getAllPaginatedRaces(['name' => 'English'])->toArray();
+    $response = $this->masterRaceService->getAllPaginated(['name' => 'English'])->toArray();
 
     $respIds = Arr::pluck($response['data'], 'id');
     sort($respIds);
@@ -37,7 +37,7 @@ test('getAllPaginatedRaces()', function () {
     expect($respIds)->toEqual([$first_race->id, $second_race->id]);
 
     //Filter by name = English 2
-    $response = $this->masterRaceService->getAllPaginatedRaces(['name' => 'English 2'])->toArray();
+    $response = $this->masterRaceService->getAllPaginated(['name' => 'English 2'])->toArray();
 
     $respIds = Arr::pluck($response['data'], 'id');
     sort($respIds);
@@ -45,7 +45,7 @@ test('getAllPaginatedRaces()', function () {
     expect($respIds)->toEqual([$second_race->id]);
 
     //Filter by non-existing name = English 3
-    $response = $this->masterRaceService->getAllPaginatedRaces(['name' => 'English 3'])->toArray();
+    $response = $this->masterRaceService->getAllPaginated(['name' => 'English 3'])->toArray();
 
     $respIds = Arr::pluck($response['data'], 'id');
     sort($respIds);
@@ -53,35 +53,35 @@ test('getAllPaginatedRaces()', function () {
     expect($respIds)->toEqual([]);
 
     //sort by name asc
-    $response = $this->masterRaceService->getAllPaginatedRaces([
+    $response = $this->masterRaceService->getAllPaginated([
         'order_by' => ['name' => 'asc'],
     ])->toArray();
 
     expect($response['data'][0]['name'][$this->locale])->toEqual('English');
 
     //sort by name desc
-    $response = $this->masterRaceService->getAllPaginatedRaces([
+    $response = $this->masterRaceService->getAllPaginated([
         'order_by' => ['name' => 'desc'],
     ])->toArray();
 
     expect($response['data'][0]['name'][$this->locale])->toEqual('Tamil');
 
     //sort by id asc
-    $response = $this->masterRaceService->getAllPaginatedRaces([
+    $response = $this->masterRaceService->getAllPaginated([
         'order_by' => ['id' => 'asc'],
     ])->toArray();
 
     expect($response['data'][0]['id'])->toEqual($first_race->id);
 
     //sort by id desc
-    $response = $this->masterRaceService->getAllPaginatedRaces([
+    $response = $this->masterRaceService->getAllPaginated([
         'order_by' => ['id' => 'desc'],
     ])->toArray();
 
     expect($response['data'][0]['id'])->toEqual($third_race->id);
 });
 
-test('createRace()', function () {
+test('create()', function () {
     //store success
     $this->assertDatabaseCount($this->race_table_name, 0);
     $payload = [
@@ -91,7 +91,7 @@ test('createRace()', function () {
         ],
     ];
 
-    $response = $this->masterRaceService->createRace($payload)->toArray();
+    $response = $this->masterRaceService->create($payload)->toArray();
 
     expect($response['name'])->toEqual($payload['name']);
 
@@ -102,7 +102,7 @@ test('createRace()', function () {
     ]);
 });
 
-test('updateRace()', function () {
+test('update()', function () {
     $first_race = Race::factory()->create([
         'name->en' => 'Chinese',
         'name->zh' => '华人',
@@ -117,7 +117,7 @@ test('updateRace()', function () {
         ],
     ];
 
-    $response = $this->masterRaceService->updateRace($first_race->id, $payload)->toArray();
+    $response = $this->masterRaceService->update($first_race->id, $payload)->toArray();
 
     expect($response['name'])->toEqual($payload['name']);
     $this->assertDatabaseCount($this->race_table_name, 1);
@@ -135,19 +135,19 @@ test('updateRace()', function () {
     ];
 
     $this->expectException(ModelNotFoundException::class);
-    $this->masterRaceService->updateRace(9999, $payload)->toArray();
+    $this->masterRaceService->update(9999, $payload)->toArray();
 
     $this->assertDatabaseCount($this->race_table_name, 1);
 });
 
-test('deleteRace()', function () {
+test('delete()', function () {
     $first_race = Race::factory()->create();
     $other_racess = Race::factory(3)->create();
 
     $this->assertDatabaseCount($this->race_table_name, 4);
 
     //delete success
-    $this->masterRaceService->deleteRace($first_race->id);
+    $this->masterRaceService->delete($first_race->id);
 
     $this->assertDatabaseCount($this->race_table_name, 3);
     $this->assertDatabaseMissing($this->race_table_name, ['id' => $first_race->id]);
@@ -158,5 +158,5 @@ test('deleteRace()', function () {
 
     //id not exist
     $this->expectException(ModelNotFoundException::class);
-    $this->masterRaceService->deleteRace(9999);
+    $this->masterRaceService->delete(9999);
 });

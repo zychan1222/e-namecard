@@ -9,11 +9,6 @@ use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
-    $this->seed([
-        InternationalizationSeeder::class,
-        PermissionSeeder::class,
-    ]);
-
     app()->setLocale('en');
 
     $this->withHeaders([
@@ -23,8 +18,6 @@ beforeEach(function () {
     $user = User::factory()->create([
         'password' => Hash::make('123456'),
     ]);
-
-    $user->assignRole('Super Admin');
 
     Sanctum::actingAs($user);
 
@@ -200,6 +193,7 @@ test('update', function () {
     ];
 
     $response = $this->json('PUT', route($this->routeName . '.update', ['master_race' => $first_race->id]), $payload)->json();
+
 
     expect($response)->toHaveSuccessGeneralResponse()
         ->and($response['data']['name'])->toEqual($payload['name']['en'])

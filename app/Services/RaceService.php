@@ -16,12 +16,12 @@ class RaceService
         $this->raceRepository = $raceRepository;
     }
 
-    public function getAllPaginatedRaces($filters = []): LengthAwarePaginator
+    public function getAllPaginated($filters = []): LengthAwarePaginator
     {
         return $this->raceRepository->getAllPaginated($filters);
     }
 
-    public function createRace($data): ?Model
+    public function create($data): ?Model
     {
         $created_race = null;
 
@@ -32,7 +32,7 @@ class RaceService
         return $created_race;
     }
 
-    public function updateRace($id, $data): ?Model
+    public function update($id, $data): ?Model
     {
         $updated_race = null;
 
@@ -43,7 +43,7 @@ class RaceService
         return $updated_race;
     }
 
-    public function deleteRace($id): bool
+    public function delete($id): bool
     {
         return $this->raceRepository->delete($id);
     }
