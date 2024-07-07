@@ -3,7 +3,6 @@
 /public/build
 /public/hot
 /public/storage
-/storage/*.key
 /vendor
 .env
 .env.*
@@ -16,6 +15,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+backup.sql
 
 # JetBrains IDE
 .idea/

@@ -9,21 +9,25 @@
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
+        "laravel/socialite": "^5.15",
         "laravel/tinker": "^2.8",
         "league/flysystem-aws-s3-v3": "^3.0",
         "league/flysystem-path-prefixing": "^3.0",
-        "spatie/laravel-medialibrary": "^10.15",
+        "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-medialibrary": "*",
         "spatie/laravel-permission": "^6.7",
         "spatie/laravel-translatable": "^6.6"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
+        "laravel/dusk": "^8.2",
         "laravel/pint": "^1.0",
         "laravel/sail": "^1.18",
         "mockery/mockery": "^1.4.4",
         "nunomaduro/collision": "^7.0",
         "pestphp/pest": "^2.34",
         "pestphp/pest-plugin-drift": "^2.5",
+        "phpunit/phpunit": "*",
         "spatie/laravel-ignition": "^2.0"
     },
     "autoload": {

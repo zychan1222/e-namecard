@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\MasterData\RaceController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -14,16 +14,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Group all authenticated routes under this middleware
-Route::middleware('auth:sanctum')->group(function () {
-    Route::prefix('master-data')->name('master-data.')->group(function () {
-        // Race routes
-        Route::prefix('races')->name('races.')->group(function () {
-            Route::get('/', [RaceController::class, 'index'])->name('index')->permission('master-race-view');
-            Route::post('/', [RaceController::class, 'create'])->name('create')->permission('master-race-create');
-            Route::get('{master_race}', [RaceController::class, 'show'])->name('show')->permission('master-race-view');
-            Route::put('{master_race}', [RaceController::class, 'update'])->name('update')->permission('master-race-update');
-            Route::delete('{master_race}', [RaceController::class, 'destroy'])->name('destroy')->permission('master-race-delete');
-        });
-    });
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
 });
