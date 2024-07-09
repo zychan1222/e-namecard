@@ -1,8 +1,20 @@
 <?php
 
 use App\Models\Employee;
+use App\Services\NamecardService;
+use Illuminate\Support\Facades\Auth;
+use Tests\TestCase;
 
 uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->namecardService = Mockery::mock(NamecardService::class);
+    $this->app->instance(NamecardService::class, $this->namecardService);
+});
+
+afterEach(function () {
+    Mockery::close();
+});
 
 test('redirects to login if user is not authenticated', function () {
     $response = $this->get('/namecard');
@@ -31,10 +43,20 @@ test('displays namecard if user is authenticated and profile is complete', funct
         'designation' => 'Software Engineer',
         'department' => 'IT',
         'company_name' => 'Tech Company',
-        'profile_pic' => null, 
+        'profile_pic' => null,
     ]);
 
     $this->actingAs($employee);
+
+    $this->namecardService->shouldReceive('generateVCard')
+        ->once()
+        ->with($employee->name, $employee->phone)
+        ->andReturn('mocked_vcard');
+    
+    $this->namecardService->shouldReceive('generateQrCode')
+        ->once()
+        ->with('mocked_vcard')
+        ->andReturn('mocked_qr_code');
 
     $response = $this->get('/namecard');
 
@@ -42,7 +64,7 @@ test('displays namecard if user is authenticated and profile is complete', funct
     $response->assertViewIs('namecard');
     $response->assertViewHas('employee', $employee);
     $response->assertViewHas('pageTitle', 'Namecard');
-    $response->assertViewHas('qrCode');
+    $response->assertViewHas('qrCode', 'mocked_qr_code');
 });
 
 test('generates QR code with correct VCard data', function () {
@@ -57,39 +79,93 @@ test('generates QR code with correct VCard data', function () {
 
     $this->actingAs($employee);
 
+    $vCard = "BEGIN:VCARD\nVERSION:3.0\nFN:John Doe\nTEL:1234567890\nEND:VCARD";
+
+    $this->namecardService->shouldReceive('generateVCard')
+        ->once()
+        ->with($employee->name, $employee->phone)
+        ->andReturn($vCard);
+    
+    $this->namecardService->shouldReceive('generateQrCode')
+        ->once()
+        ->with($vCard)
+        ->andReturn('mocked_qr_code');
+
     $response = $this->get('/namecard');
 
     $response->assertStatus(200);
-
-    $vCard = "BEGIN:VCARD\nVERSION:3.0\nFN:John Doe\nTEL:1234567890\nEND:VCARD";
-
-    $qrCode = \QrCode::size(100)->generate($vCard);
-
-    $response->assertViewHas('qrCode', $qrCode);
+    $response->assertViewHas('qrCode', 'mocked_qr_code');
 });
 
 test('generate WhatsApp link', function () {
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->create([
+        'name' => 'John Doe',
+        'phone' => '1234567890',
+    ]);
+
+    $this->actingAs($employee);
+
+    $this->namecardService->shouldReceive('generateVCard')
+        ->once()
+        ->with($employee->name, $employee->phone)
+        ->andReturn('mocked_vcard');
+    
+    $this->namecardService->shouldReceive('generateQrCode')
+        ->once()
+        ->with('mocked_vcard')
+        ->andReturn('mocked_qr_code');
+
     $expectedUrl = 'whatsapp://send?text=' . urlencode(route('download.vcard.page', ['employee' => $employee]));
 
-    $response = $this->actingAs($employee)->get('/namecard');
+    $response = $this->get('/namecard');
     $response->assertStatus(200);
     $response->assertSee($expectedUrl);
 });
 
 test('generate Telegram link', function () {
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->create([
+        'name' => 'John Doe',
+        'phone' => '1234567890',
+    ]);
+
+    $this->actingAs($employee);
+
+    $this->namecardService->shouldReceive('generateVCard')
+        ->once()
+        ->with($employee->name, $employee->phone)
+        ->andReturn('mocked_vcard');
+    
+    $this->namecardService->shouldReceive('generateQrCode')
+        ->once()
+        ->with('mocked_vcard')
+        ->andReturn('mocked_qr_code');
+
     $expectedUrl = 'tg://msg_url?url=' . urlencode(route('download.vcard.page', ['employee' => $employee]));
 
-    $response = $this->actingAs($employee)->get('/namecard');
+    $response = $this->get('/namecard');
     $response->assertStatus(200);
     $response->assertSee($expectedUrl);
 });
 
 test('capture and save image', function () {
-    $employee = Employee::factory()->create();
+    $employee = Employee::factory()->create([
+        'name' => 'John Doe',
+        'phone' => '1234567890',
+    ]);
 
-    $response = $this->actingAs($employee)->get('/namecard');
+    $this->actingAs($employee);
+
+    $this->namecardService->shouldReceive('generateVCard')
+        ->once()
+        ->with($employee->name, $employee->phone)
+        ->andReturn('mocked_vcard');
+    
+    $this->namecardService->shouldReceive('generateQrCode')
+        ->once()
+        ->with('mocked_vcard')
+        ->andReturn('mocked_qr_code');
+
+    $response = $this->get('/namecard');
     $response->assertStatus(200);
 
     $response->assertSee('Capture and Save Image');

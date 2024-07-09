@@ -5,7 +5,7 @@ use App\Repositories\SocialRepository;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
 
-it('redirects to social provider', function () {
+test('redirects to social provider', function () {
     // Mocking dependencies
     $socialRepository = mock(SocialRepository::class);
     $socialConnectionService = new SocialConnectionService($socialRepository);
