@@ -7,6 +7,26 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+    <style>
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+
+        .alert-success {
+            color: #3c763d;
+            background-color: #dff0d8;
+            border-color: #d6e9c6;
+        }
+        
+        .alert-danger {
+            color: #a94442; 
+            background-color: #f2dede; 
+            border-color: #ebccd1;
+        }  
+    </style>
 </head>
 <body class="bg-gray-100">
     @include('partials.header')
@@ -15,7 +35,18 @@
             <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ $pageTitle }}</h1>
         </div>
     </header>
+                <!-- Flash messages -->
+                @if(session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+        @endif
 
+        @if(session('error'))
+            <div class="alert alert-danger">
+                {{ session('error') }}
+            </div>
+        @endif
     <div class="flex justify-center mt-10">
         <div id="capture" class="bg-white shadow-lg rounded-lg w-full sm:w-96 h-full sm:h-48 flex">
             <!-- Left side (60%) -->
@@ -29,7 +60,7 @@
 
             <!-- Right side (40%) -->
             <div class="w-2/5 p-4 flex flex-col items-center justify-center">
-                <img id="profile-pic" src="{{ $employee->profile_pic ? asset('storage/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-16 h-16 rounded-full mb-2 border-2 border-gray-300">
+                <img id="profile-pic" src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-16 h-16 rounded-full mb-2 border-2 border-gray-300">
                 <div id="qr-code">{!! $qrCode !!}</div>
             </div>
         </div>

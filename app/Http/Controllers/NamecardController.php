@@ -2,9 +2,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
 use App\Services\NamecardService;
 use App\Models\Employee;
+use App\Models\User;
 
 class NamecardController extends Controller
 {
@@ -16,19 +17,22 @@ class NamecardController extends Controller
     }
 
     public function showNamecard()
-    
     {
-        $employee = Auth::user();
+        $employeeId = Session::get('employee_id');
+        $employee = Employee::find($employeeId);
 
-        if (empty($employee->name) || empty($employee->phone)) {
-            return redirect()->route('profile.view')->with('error', 'Please complete your profile details to generate a QR code.');
+        if (!$employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
         }
+
+        $user = User::find($employee->user_id);
+        $email = $user ? $user->email : 'Email not available';
 
         $pageTitle = 'Namecard';
         $vCard = $this->namecardService->generateVCard($employee->name, $employee->phone);
         $qrCode = $this->namecardService->generateQrCode($vCard);
 
-        return view('namecard', compact('employee', 'pageTitle', 'qrCode'));
+        return view('namecard', compact('employee', 'email', 'pageTitle', 'qrCode'));
     }
 
     public function downloadVCard($name, $phone)
@@ -44,8 +48,18 @@ class NamecardController extends Controller
     public function showVCardDownloadPage(Employee $employee)
     {
         if ($employee->is_active != 1) {
-            throw new \Exception('Your account is inactive.');
+            abort(403, 'The account is inactive.');
         }
-        return view('vcard_download_page', compact('employee'));
+
+        $employeeId = Session::get('employee_id');
+        $employee = Employee::find($employeeId);
+        $user = User::find($employee->user_id);
+        $email = $user ? $user->email : 'Email not available';
+
+        if (!$employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
+        }
+
+        return view('vcard_download_page', compact('employee', 'email'));
     }
 }

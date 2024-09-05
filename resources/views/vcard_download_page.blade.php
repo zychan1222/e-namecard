@@ -101,14 +101,14 @@
     </div>
     <h1>User Details</h1>
     <div class="details">
-        <img class="profile-pic" src="{{ $employee->profile_pic ? asset('storage/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture">
+        <img class="profile-pic" src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture">
         <p><strong>Name:</strong> {{ $employee->name }}</p>
         <p><strong>CN Name:</strong> {{ $employee->name_cn }}</p>
-        <p><strong>Email:</strong> {{ $employee->email }}</p>
+        <p><strong>Email:</strong> {{ $email }}</p>
         <p><strong>Phone:</strong> {{ $employee->phone }}</p>
-        <p><strong>Designation:</strong> {{ $employee->designation }}</p>
+        <p><strong>Company Name:</strong> {{ $employee->organization->name }}</p>
         <p><strong>Department:</strong> {{ $employee->department }}</p>
-        <p><strong>Company Name:</strong> {{ $employee->company_name }}</p>
+        <p><strong>Designation:</strong> {{ $employee->designation }}</p>
     </div>
 
     <div class="download-section">

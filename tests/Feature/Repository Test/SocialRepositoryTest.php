@@ -1,68 +1,49 @@
 <?php
-
-use App\Repositories\SocialRepository;
-use App\Models\Employee;
+use App\Models\User;
 use App\Models\SocialConnection;
-use Laravel\Socialite\Contracts\User as SocialUser;
+use App\Repositories\SocialRepository;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->socialRepository = new SocialRepository();
+    $this->repository = new SocialRepository();
+    $this->user = User::factory()->create();
+    $this->socialUser = new class {
+        public function getId() {
+            return 'social_user_id';
+        }
+        public $token = 'access_token';
+    };
 });
 
-test('find employee by email', function () {
-    $employee = Employee::factory()->create([
-        'email' => 'socialconnection@example.com'
-    ]);
+it('creates a social connection', function () {
+    $provider = 'provider_name';
 
-    $foundEmployee = $this->socialRepository->findEmployeeByEmail('socialconnection@example.com');
+    $socialConnection = $this->repository->createSocialConnection($this->user, $this->socialUser, $provider);
 
-    expect($foundEmployee)->toBeInstanceOf(Employee::class);
-    expect($foundEmployee->email)->toEqual('socialconnection@example.com');
+    expect(SocialConnection::count())->toBe(1);
+    expect($socialConnection->user_id)->toBe($this->user->id);
+    expect($socialConnection->provider)->toBe($provider);
+    expect($socialConnection->provider_id)->toBe('social_user_id');
+    expect($socialConnection->access_token)->toBe('access_token');
 });
 
-test('find employee by email returns null for non existing email', function () {
-    $foundEmployee = $this->socialRepository->findEmployeeByEmail('non.existing@example.com');
+it('checks if a user has a social connection', function () {
+    $provider = 'provider_name';
 
-    expect($foundEmployee)->toBeNull();
+    $this->repository->createSocialConnection($this->user, $this->socialUser, $provider);
+
+    $hasConnection = $this->repository->hasSocialConnection($this->user->id, 'social_user_id', $provider);
+
+    expect($hasConnection)->toBeTrue();
 });
 
-test('create employee', function () {
-    $employeeData = [
-        'name' => 'socialconnection2',
-        'email' => 'socialconnection2@example.com',
-        'password' => bcrypt('password123'),
-    ];
+it('returns false if a user does not have a social connection', function () {
+    $provider = 'provider_name';
 
-    $employee = $this->socialRepository->createEmployee($employeeData);
+    $hasConnection = $this->repository->hasSocialConnection($this->user->id, 'non_existent_user_id', $provider);
 
-    expect($employee)->toBeInstanceOf(Employee::class);
-    $this->assertDatabaseHas('employees', [
-        'name' => 'socialconnection2',
-        'email' => 'socialconnection2@example.com',
-    ]);
-});
-
-test('create social connection', function () {
-    $employee = Employee::factory()->create();
-    $socialUser = \Mockery::mock(SocialUser::class);
-    $socialUser->shouldReceive('getId')->andReturn('1234567890');
-    $socialUser->token = 'fake_token';
-
-    $provider = 'google';
-
-    $this->socialRepository->createSocialConnection($employee, $socialUser, $provider);
-
-    $this->assertDatabaseHas('social_connections', [
-        'employee_id' => $employee->id,
-        'provider' => 'google',
-        'provider_id' => '1234567890',
-        'access_token' => 'fake_token',
-    ]);
-});
-
-afterEach(function () {
-    \Mockery::close();
+    expect($hasConnection)->toBeFalse();
 });

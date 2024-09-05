@@ -1,102 +1,131 @@
 <?php
-
-use App\Services\UserService;
 use App\Repositories\UserRepository;
-use App\Models\Employee;
+use App\Services\TACService;
+use App\Services\UserService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
-use Tests\TestCase;
+use Illuminate\Support\Carbon;
 
-test('registers a user', function () {
-    // Mock UserRepository
-    $userRepository = $this->mock(UserRepository::class);
-    $userRepository->shouldReceive('create')->andReturn(new Employee());
-
-    // Mock Hash facade
-    Hash::shouldReceive('make')->once()->andReturn('hashed_password');
-
-    // Mock Auth facade
-    Auth::shouldReceive('login')->once();
-
-    $userService = new UserService($userRepository);
-
-    $user = $userService->register([
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-        'password' => 'password123',
-    ]);
-
-    expect($user)->toBeInstanceOf(Employee::class);
+beforeEach(function () {
+    $this->userRepository = mock(UserRepository::class);
+    $this->tacService = mock(TACService::class);
+    $this->userService = new UserService($this->userRepository, $this->tacService);
 });
 
-test('it logs in a user successfully', function () {
-    $user = Employee::factory()->create([
-        'email' => 'jane.doe@example.com',
-        'password' => Hash::make('password123'),
-        'is_active' => 1, // Active user
-    ]);
+it('generates and sends TAC for existing user', function () {
+    $email = 'user@example.com';
+    $user = (object)['email' => $email];
 
-    // Mock Auth facade for login attempt
-    Auth::shouldReceive('attempt')
-        ->once()
-        ->with(['email' => 'jane.doe@example.com', 'password' => 'password123'])
-        ->andReturn(true);
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+    $this->tacService->shouldReceive('generateTAC')->andReturn('123456');
+    $this->tacService->shouldReceive('sendTAC')->with($user, '123456');
 
-    // Mock Auth facade for retrieving authenticated user
-    Auth::shouldReceive('user')->once()->andReturn($user);
+    $result = $this->userService->generateAndSendTAC($email);
 
-    // Create an instance of UserService
-    $userService = new UserService(resolve(UserRepository::class));
-
-    // Call the login method
-    $loggedInUser = $userService->login([
-        'email' => 'jane.doe@example.com',
-        'password' => 'password123',
-    ]);
-
-    // Assertions
-    expect($loggedInUser)->toBeInstanceOf(Employee::class);
-    expect($loggedInUser->id)->toBe($user->id);
+    expect($result)->toBe($user);
 });
 
-test('updates a user profile', function () {
-    // Create a test employee
-    $employee = Employee::factory()->create();
+it('returns null when user does not exist for TAC generation', function () {
+    $email = 'nonexistent@example.com';
 
-    // Mock UserRepository
-    $userRepository = $this->mock(UserRepository::class);
-    $userRepository->shouldReceive('update')->andReturnUsing(function ($employee, $data) {
-        $employee->fill($data)->save(); // Simulate update process
-        return $employee;
-    });
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn(null);
 
-    // Mock Log facade
-    Log::shouldReceive('info')->twice();
+    $result = $this->userService->generateAndSendTAC($email);
 
-    $userService = new UserService($userRepository);
-
-    $updatedEmployee = $userService->updateProfile($employee, [
-        'name' => 'Dr. Xavier Hodkiewicz DVM', // Updated name
-        // Add other fields you want to update
-    ]);
-
-    expect($updatedEmployee->name)->toBe('Dr. Xavier Hodkiewicz DVM'); // Adjusted assertion
+    expect($result)->toBeNull();
 });
 
+it('registers email and sends TAC if user does not exist', function () {
+    $email = 'newuser@example.com';
+    $user = (object)['email' => $email];
 
-test('finds a user by ID', function () {
-    // Create a test employee
-    $employee = Employee::factory()->create();
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn(null);
+    $this->userRepository->shouldReceive('create')->with(['email' => $email])->andReturn($user);
+    $this->tacService->shouldReceive('generateTAC')->andReturn('654321');
+    $this->tacService->shouldReceive('sendTAC')->with($user, '654321');
 
-    // Mock UserRepository
-    $userRepository = $this->mock(UserRepository::class);
-    $userRepository->shouldReceive('findById')->andReturn($employee);
+    $result = $this->userService->registerEmail($email);
 
-    $userService = new UserService($userRepository);
+    expect($result)->toBe($user);
+});
 
-    $foundEmployee = $userService->findById($employee->id);
+it('registers email and sends TAC if user already exists', function () {
+    $email = 'existinguser@example.com';
+    $user = (object)['email' => $email];
 
-    expect($foundEmployee)->toBeInstanceOf(Employee::class);
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+    $this->tacService->shouldReceive('generateTAC')->andReturn('789012');
+    $this->tacService->shouldReceive('sendTAC')->with($user, '789012');
+
+    $result = $this->userService->registerEmail($email);
+
+    expect($result)->toBe($user);
+});
+
+it('finds user by email', function () {
+    $email = 'user@example.com';
+    $user = (object)['email' => $email];
+
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+
+    $result = $this->userService->findByEmail($email);
+
+    expect($result)->toBe($user);
+});
+
+it('returns null if user not found by email', function () {
+    $email = 'nonexistent@example.com';
+
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn(null);
+
+    $result = $this->userService->findByEmail($email);
+
+    expect($result)->toBeNull();
+});
+
+it('verifies TAC correctly when valid', function () {
+    $email = 'user@example.com';
+    $tac = '123456';
+    $user = (object)[
+        'email' => $email,
+        'tac_code' => $tac,
+        'tac_expiry' => now()->addMinutes(10),
+    ];
+
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+
+    $result = $this->userService->verifyTAC($email, $tac);
+
+    expect($result)->toBeTrue();
+});
+
+it('does not verify TAC if TAC does not match', function () {
+    $email = 'user@example.com';
+    $tac = 'wrong_tac';
+    $user = (object)[
+        'email' => $email,
+        'tac_code' => '123456',
+        'tac_expiry' => now()->addMinutes(10),
+    ];
+
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+
+    $result = $this->userService->verifyTAC($email, $tac);
+
+    expect($result)->toBeFalse();
+});
+
+it('does not verify TAC if expired', function () {
+    $email = 'user@example.com';
+    $tac = '123456';
+    $user = (object)[
+        'email' => $email,
+        'tac_code' => $tac,
+        'tac_expiry' => now()->subMinutes(10),
+    ];
+
+    $this->userRepository->shouldReceive('findByEmail')->with($email)->andReturn($user);
+
+    $result = $this->userService->verifyTAC($email, $tac);
+
+    expect($result)->toBeFalse();
 });

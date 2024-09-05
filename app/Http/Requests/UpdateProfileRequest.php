@@ -18,7 +18,6 @@ class UpdateProfileRequest extends FormRequest
             'name' => ['nullable', 'string', 'max:255'],
             'name_cn' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'company_name' => ['nullable', 'string', 'max:255'],
             'department' => ['nullable', 'string', 'max:255'],
             'designation' => ['nullable', 'string', 'max:255'],
             'is_active' => ['nullable', 'boolean'],
@@ -33,7 +32,6 @@ class UpdateProfileRequest extends FormRequest
             'name.max' => 'The name may not be greater than :max characters.',
             'name_cn.max' => 'The Chinese name may not be greater than :max characters.',
             'phone.max' => 'The phone may not be greater than :max characters.',
-            'company_name.max' => 'The company name may not be greater than :max characters.',
             'department.max' => 'The department may not be greater than :max characters.',
             'designation.max' => 'The designation may not be greater than :max characters.',
         ];

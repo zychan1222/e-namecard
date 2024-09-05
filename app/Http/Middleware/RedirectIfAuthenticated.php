@@ -6,21 +6,35 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpFoundation\Response;
 
 class RedirectIfAuthenticated
 {
-    public function handle(Request $request, Closure $next, string ...$guards): Response
+    public function handle(Request $request, Closure $next, $guard = null)
     {
-        $guards = empty($guards) ? [null] : $guards;
+        if (Auth::guard($guard)->check()) {
+            $currentRoute = $request->route()->getName();
+            $employeeId = session('employee_id');
+            $userId = Auth::id();
 
-        foreach ($guards as $guard) {
-            Log::info("Checking guard: $guard");
-            if (Auth::guard($guard)->check()) {
-                Log::info("User authenticated with guard: $guard");
+            Log::info('RedirectIfAuthenticated middleware triggered.', [
+                'current_route' => $currentRoute,
+                'user_id' => $userId,
+                'employee_id' => $employeeId,
+            ]);
 
-                return redirect('/dashboard');
+            // Allow access to the organization selection page and related POST request
+            if ($currentRoute === 'select.organization' || $currentRoute === 'select.organization.post') {
+                return $next($request);
             }
+
+            // Redirect to the organization selection page if no employee ID is in session
+            if (!$employeeId) {
+                Log::info('No employee ID in session. Redirecting to organization selection.');
+                return redirect()->route('select.organization');
+            }
+
+            // If already on the dashboard, continue the request
+            return $next($request);
         }
 
         return $next($request);

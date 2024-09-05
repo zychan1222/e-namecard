@@ -1,79 +1,175 @@
 <?php
 
-use Illuminate\Support\Facades\Hash;
+namespace Tests\Feature;
+
+use App\Models\User;
+use App\Models\Organization;
 use App\Models\Employee;
+use App\Services\UserService;
+use App\Services\EmployeeService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+use Tests\TestCase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
-test('user can view login form', function () {
-    $response = $this->get('/login');
+beforeEach(function () {
+    $this->userService = $this->mock(UserService::class);
+    $this->employeeService = $this->mock(EmployeeService::class);
+});
+
+it('shows the login form', function () {
+    $response = $this->get(route('login'));
 
     $response->assertStatus(200)
-        ->assertViewIs('auth.login')
-        ->assertSee('Sign in to your account');
+             ->assertViewIs('auth.login');
 });
 
-test('user can use register link', function () {
-    $response = $this->get(route('register'));
+it('sends TAC and redirects to the TAC form', function () {
+    $email = 'test@example.com';
+    $user = User::factory()->make(['id' => 1]);
+
+    $this->userService->shouldReceive('generateAndSendTAC')
+                      ->once()
+                      ->with($email)
+                      ->andReturn($user);
+
+    $response = $this->post(route('login.sendTAC'), ['email' => $email]);
+
+    $response->assertRedirect(route('login.tac.show'))
+             ->assertSessionHas('success', 'TAC sent successfully to your email.');
+});
+
+it('redirects with an error for non-existent user', function () {
+    $invalidEmail = 'nonexistent@example.com';
+
+    $this->userService->shouldReceive('generateAndSendTAC')
+                      ->once()
+                      ->with($invalidEmail)
+                      ->andReturn(null);
+
+    $response = $this->post(route('login.sendTAC'), ['email' => $invalidEmail]);
+
+    $response->assertRedirect(route('login'))
+             ->assertSessionHasErrors(['email' => 'No user found with this email.']);
+});
+
+it('shows the TAC form', function () {
+    $response = $this->get(route('login.tac.show'));
 
     $response->assertStatus(200)
-             ->assertViewIs('auth.register');
+             ->assertViewIs('auth.tac');
 });
 
-test('employee can login with valid credentials', function () {
-    $employee = Employee::factory()->create([
-        'email' => 'test@example.com',
-        'password' => Hash::make('password123'),
+it('logs in with valid TAC', function () {
+    $email = 'test@example.com';
+    $tacCode = '123456';
+    $user = User::factory()->make(['id' => 1]);
+
+    $this->userService->shouldReceive('verifyTAC')
+                      ->once()
+                      ->with($email, $tacCode)
+                      ->andReturn(true);
+
+    $this->userService->shouldReceive('findByEmail')
+                      ->once()
+                      ->with($email)
+                      ->andReturn($user);
+
+    $this->employeeService->shouldReceive('findByUserId')
+                          ->once()
+                          ->with(1)
+                          ->andReturn(collect([(object)['id' => 1, 'company_id' => 1]]));
+
+    $response = $this->post(route('login.tac'), [
+        'email' => $email,
+        'tac_code' => $tacCode
     ]);
 
-    $response = $this->post(route('login'), [
-        'email' => $employee->email,
-        'password' => 'password123',
-    ]);
-
-    $response->assertRedirect(route('dashboard'));
-    $this->assertAuthenticatedAs($employee);
+    $response->assertRedirect(route('select.organization'))
+             ->assertSessionHas('success', 'Login successful.');
 });
 
-test('employee cannot login with invalid credentials', function () {
-    $employee = Employee::factory()->create([
-        'email' => 'test2@example.com',
-        'password' => Hash::make('password123'),
+it('does not log in with invalid TAC', function () {
+    $email = 'test@example.com';
+    $tacCode = 'wrong_code';
+
+    $this->userService->shouldReceive('verifyTAC')
+                      ->once()
+                      ->with($email, $tacCode)
+                      ->andReturn(false);
+
+    $response = $this->post(route('login.tac'), [
+        'email' => $email,
+        'tac_code' => $tacCode
     ]);
 
-    $response = $this->post(route('login'), [
-        'email' => $employee->email,
-        'password' => 'wrongpassword',
-    ]);
-
-    $response->assertSessionHasErrors('email');
-    $this->assertGuest();
-
-    $employee->delete();
+    $response->assertRedirect(route('login.tac.show'))
+             ->assertSessionHasErrors(['tac_code' => 'Invalid TAC code or it has expired.']);
 });
 
-test('inactive user cannot login', function () {
-    // Create an inactive user
-    $employee = Employee::factory()->create([
-        'email' => 'inactive@example.com',
-        'password' => bcrypt('password123'),
-        'is_active' => 0,
-    ]);
+it('displays the organization selection page with employee entries', function () {
+    $organization = Organization::factory()->create();
+    $employee = Employee::factory()->create(['company_id' => $organization->id]);
 
-    // Attempt to login with the inactive user's credentials
-    $response = $this->post('/login', [
-        'email' => 'inactive@example.com',
-        'password' => 'password123',
-    ]);
+    Session::put('employeeEntries', [$employee]);
 
-    // Assert the user is redirected back to the login page
-    $response->assertRedirect();
+    $response = $this->get(route('select.organization'));
 
-    // Assert the error message is present in the session
-    $response->assertSessionHasErrors([
-        'email' => 'Your account is inactive.',
-    ]);
+    $response->assertStatus(200)
+             ->assertSee($organization->name)
+             ->assertSee('Select Your Organization');
+});
 
-    // Assert the user is not authenticated
-    $this->assertGuest();
+it('displays a warning when there are no employee entries', function () {
+    Session::put('employeeEntries', []);
+
+    $response = $this->get(route('select.organization'));
+
+    $response->assertStatus(200)
+             ->assertSee('No employee entries available');
+});
+
+it('redirects with an error for invalid employee selection', function () {
+    $invalidEmployeeId = 999;
+
+    $this->employeeService->shouldReceive('findById')
+                          ->once()
+                          ->with($invalidEmployeeId)
+                          ->andReturn(null);
+
+    $response = $this->post(route('select.organization.post'), ['employee_id' => $invalidEmployeeId]);
+
+    $response->assertRedirect(route('select.organization'))
+             ->assertSessionHasErrors(['employee_id' => 'Invalid selection.']);
+});
+
+it('selects an organization and redirects to the dashboard', function () {
+    $organization = (object)['name' => 'Test Organization', 'logo' => null];
+    $employee = (object)['id' => 1, 'organization' => $organization, 'company_id' => 1];
+
+    Session::put('employeeEntries', collect([$employee]));
+
+    $this->employeeService->shouldReceive('findById')
+                          ->once()
+                          ->with(1)
+                          ->andReturn((object)['id' => 1, 'user_id' => Auth::id(), 'company_id' => 1]);
+
+    $response = $this->post(route('select.organization.post'), ['employee_id' => 1]);
+
+    $response->assertRedirect(route('dashboard'))
+             ->assertSessionHas('success', 'Organization selected successfully.');
+    $this->assertEquals(1, Session::get('employee_id'));
+});
+
+it('logs out the user and redirects to the home page', function () {
+    Auth::login(User::factory()->create());
+
+    $response = $this->post(route('logout'));
+
+    $response->assertRedirect('/')
+             ->assertSessionHas('success', 'Successfully logged out.');
+    $this->assertFalse(Auth::check());
+    $this->assertNull(Session::get('employeeEntries'));
 });

@@ -2,34 +2,20 @@
 
 use App\Repositories\AdminRepository;
 use App\Models\Admin;
-use App\Models\Employee;
-
-
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 beforeEach(function () {
     $this->adminRepository = new AdminRepository();
+    $this->admin = Admin::factory()->create(['employee_id' => 1]);
 });
 
-test('get admin by employee id', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create([
-        'employee_id' => $employee->id,
-    ]);
-
-    // Fetch the admin using the repository method
-    $foundAdmin = $this->adminRepository->getAdminByEmployeeId($employee->id);
-
-    // Assert that the admin is found and is the same as the created one
-    expect($foundAdmin)->not->toBeNull();
-    expect($foundAdmin)->toBeInstanceOf(Admin::class);
-    expect($foundAdmin->id)->toEqual($admin->id);
-    expect($foundAdmin->employee_id)->toEqual($employee->id);
+it('can find an admin by employee ID', function () {
+    $result = $this->adminRepository->findByEmployeeId(1);
+    expect($result)->toBeInstanceOf(Admin::class);
+    expect($result->employee_id)->toEqual(1);
 });
 
-test('get admin by employee id returns null for non existing employee', function () {
-    // Fetch the admin using a non-existing employee ID
-    $foundAdmin = $this->adminRepository->getAdminByEmployeeId(999);
-
-    expect($foundAdmin)->toBeNull();
+it('returns null if no admin is found for the given employee ID', function () {
+    $result = $this->adminRepository->findByEmployeeId(999);
+    expect($result)->toBeNull();
 });

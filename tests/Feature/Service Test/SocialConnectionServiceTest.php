@@ -2,149 +2,97 @@
 
 use App\Services\SocialConnectionService;
 use App\Repositories\SocialRepository;
-use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Socialite\Facades\Socialite;
 
-test('redirects to social provider', function () {
-    // Mocking dependencies
-    $socialRepository = mock(SocialRepository::class);
-    $socialConnectionService = new SocialConnectionService($socialRepository);
-
-    $provider = 'google'; 
-
-    // Expecting Socialite to be called with the correct provider
-    Socialite::shouldReceive('driver')->with($provider)->andReturnSelf();
-    Socialite::shouldReceive('redirect')->andReturn('mocked_redirect_url');
-
-    // Perform the redirection
-    $redirectUrl = $socialConnectionService->redirectToProvider($provider);
-
-    // Assert the returned URL
-    expect($redirectUrl)->toBe('mocked_redirect_url');
+beforeEach(function () {
+    $this->socialRepository = Mockery::mock(SocialRepository::class);
+    $this->socialConnectionService = new SocialConnectionService($this->socialRepository);
 });
 
-test('mocks socialite user data', function () {
-    // Mock Socialite user data
-    $socialUser = (object) [
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-    ];
+it('redirects to the social provider', function () {
+    $provider = 'google';
 
-    // Mocking Socialite to return the social user
-    Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+    Socialite::shouldReceive('driver')
+        ->with($provider)
+        ->andReturnSelf();
+
+    Socialite::shouldReceive('redirect')->once();
+
+    $this->socialConnectionService->redirectToProvider($provider);
+});
+
+it('handles the callback for social login successfully', function () {
+    $provider = 'google';
+    $socialUser = new class {
+        public $email = 'user@example.com';
+        public $id = 'social_id';
+        public function getId() {
+            return $this->id;
+        }
+    };
+    $user = (object) ['id' => 1];
+
+    Socialite::shouldReceive('driver')
+        ->with($provider)
+        ->andReturnSelf();
     Socialite::shouldReceive('stateless')->andReturnSelf();
     Socialite::shouldReceive('user')->andReturn($socialUser);
 
-    $retrievedUser = Socialite::driver('google')->stateless()->user();
-    expect($retrievedUser)->toBe($socialUser);
+    $this->socialRepository->shouldReceive('findUserByEmail')
+        ->with($socialUser->email)
+        ->andReturn($user);
+
+    $this->socialRepository->shouldReceive('hasSocialConnection')
+        ->with($user->id, $socialUser->getId(), $provider)
+        ->andReturn(false);
+
+    $this->socialRepository->shouldReceive('createSocialConnection')
+        ->with($user, $socialUser, $provider)
+        ->once();
+
+    Auth::shouldReceive('login')->with($user)->once();
+
+    $result = $this->socialConnectionService->handleCallback($provider);
+
+    expect($result)->toBe($user);
 });
 
-test('finds or creates employee', function () {
-    $socialRepository = mock(SocialRepository::class);
-    $socialConnectionService = new SocialConnectionService($socialRepository);
+it('redirects when user is not found', function () {
+    $provider = 'google';
+    $socialUser = new class {
+        public $email = 'user@example.com';
+        public $id = 'social_id';
+        public function getId() {
+            return $this->id;
+        }
+    };
 
-    $socialUser = (object) [
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-    ];
-
-    $employee = new \App\Models\Employee();
-
-    // Mocking Socialite to return the social user
-    Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+    Socialite::shouldReceive('driver')
+        ->with($provider)
+        ->andReturnSelf();
     Socialite::shouldReceive('stateless')->andReturnSelf();
     Socialite::shouldReceive('user')->andReturn($socialUser);
 
-    $socialRepository->shouldReceive('findEmployeeByEmail')->with($socialUser->email)->andReturn(null);
-    $socialRepository->shouldReceive('createEmployee')->with([
-        'name' => $socialUser->name,
-        'email' => $socialUser->email,
-        'password' => '',
-    ])->andReturn($employee);
-    $socialRepository->shouldReceive('createSocialConnection')->with($employee, $socialUser, 'google');
+    $this->socialRepository->shouldReceive('findUserByEmail')
+        ->with($socialUser->email)
+        ->andReturn(null);
 
-    $returnedEmployee = $socialConnectionService->handleCallback('google');
-    expect($returnedEmployee)->toBe($employee);
+    $response = $this->socialConnectionService->handleCallback($provider);
+
+    expect($response)->toBeInstanceOf(Illuminate\Http\RedirectResponse::class);
+    expect($response->getSession()->get('errors')->get('email')[0])->toBe('No user found with this email.');
 });
 
+it('redirects on error during callback', function () {
+    $provider = 'google';
 
-test('creates social connection', function () {
-    $socialRepository = mock(SocialRepository::class);
-    $socialConnectionService = new SocialConnectionService($socialRepository);
+    Socialite::shouldReceive('driver')
+        ->with($provider)
+        ->andThrow(new Exception('Error during Socialite'));
 
-    $socialUser = (object) [
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-    ];
+    $response = $this->socialConnectionService->handleCallback($provider);
 
-    $employee = new \App\Models\Employee();
-
-    // Mocking Socialite to return the social user
-    Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
-    Socialite::shouldReceive('stateless')->andReturnSelf();
-    Socialite::shouldReceive('user')->andReturn($socialUser);
-
-    $socialRepository->shouldReceive('findEmployeeByEmail')->with($socialUser->email)->andReturn(null);
-    $socialRepository->shouldReceive('createEmployee')->with([
-        'name' => $socialUser->name,
-        'email' => $socialUser->email,
-        'password' => '',
-    ])->andReturn($employee);
-    $socialRepository->shouldReceive('createSocialConnection')->with($employee, $socialUser, 'google');
-
-    $returnedEmployee = $socialConnectionService->handleCallback('google');
-    expect($returnedEmployee)->toBe($employee);
+    expect($response)->toBeInstanceOf(Illuminate\Http\RedirectResponse::class);
+    expect($response->getSession()->get('errors')->get('general')[0])->toBe('An error occurred during login. Please try again.');
 });
-
-test('logs in employee', function () {
-    $socialRepository = mock(SocialRepository::class);
-    $socialConnectionService = new SocialConnectionService($socialRepository);
-
-    $socialUser = (object) [
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-    ];
-
-    $employee = new \App\Models\Employee();
-    $employee->is_active = 1;
-
-    // Mocking Socialite to return the social user
-    Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
-    Socialite::shouldReceive('stateless')->andReturnSelf();
-    Socialite::shouldReceive('user')->andReturn($socialUser);
-
-    $socialRepository->shouldReceive('findEmployeeByEmail')->with($socialUser->email)->andReturn($employee);
-    $socialRepository->shouldReceive('createEmployee')->andReturn(null);
-    $socialRepository->shouldReceive('createSocialConnection')->andReturn(null);
-
-    Auth::shouldReceive('login')->with($employee);
-
-    $returnedEmployee = $socialConnectionService->handleCallback('google');
-    expect($returnedEmployee)->toBe($employee);
-});
-
-test('throws exception for inactive employee', function () {
-    $socialRepository = mock(SocialRepository::class);
-    $socialConnectionService = new SocialConnectionService($socialRepository);
-
-    $socialUser = (object) [
-        'name' => 'John Doe',
-        'email' => 'john.doe@example.com',
-    ];
-
-    $employee = new \App\Models\Employee();
-    $employee->is_active = 0;
-
-    // Mocking Socialite to return the social user
-    Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
-    Socialite::shouldReceive('stateless')->andReturnSelf();
-    Socialite::shouldReceive('user')->andReturn($socialUser);
-
-    $socialRepository->shouldReceive('findEmployeeByEmail')->with($socialUser->email)->andReturn($employee);
-
-    $this->expectException(\Exception::class);
-    $this->expectExceptionMessage('Your account is inactive.');
-
-    $socialConnectionService->handleCallback('google');
-});
-

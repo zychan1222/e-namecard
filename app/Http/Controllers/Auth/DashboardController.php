@@ -3,30 +3,46 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\DashboardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Employee;
 
 class DashboardController extends Controller
 {
+    protected $dashboardService;
+
+    public function __construct(DashboardService $dashboardService)
+    {
+        $this->dashboardService = $dashboardService;
+    }
+
     public function showDashboard()
     {
-        if (Auth::check()) {
-            $employee = $this->getAuthenticatedEmployee();
-            $pageTitle = 'Dashboard'; 
-            return $this->showDashboardPage($employee, $pageTitle);
-        } else {
-            return redirect()->route('login');
+        $employeeId = session('employee_id');
+
+        $employee = $this->dashboardService->getAuthenticatedEmployee($employeeId);
+        
+        if (!$employee) {
+            return $this->handleInvalidEmployee();
         }
+
+        return $this->showDashboardPage($employee, $employeeId);
     }
 
-    protected function getAuthenticatedEmployee()
+    protected function isAuthenticated()
     {
-        return Auth::user();
+        return Auth::check();
     }
 
-    protected function showDashboardPage(Employee $employee, $pageTitle)
+    protected function handleInvalidEmployee()
     {
-        return view('dashboard', compact('employee', 'pageTitle'));
+        session()->forget('employee_id');
+        return redirect()->route('login');
+    }
+
+    protected function showDashboardPage($employee, $employeeId)
+    {
+        $pageTitle = 'Dashboard';
+        return view('dashboard', compact('employee', 'employeeId', 'pageTitle'));
     }
 }

@@ -1,168 +1,166 @@
 <?php
 
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Http\UploadedFile;
-use App\Models\Employee;
 use App\Models\Admin;
-use App\Http\Requests\UpdateProfileRequest;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Employee;
+use App\Models\Organization;
+use App\Models\User;
+use App\Services\EmployeeProfileService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
-test('admin can view employee profile page', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
+beforeEach(function () {
+    $this->organization = Organization::factory()->create();
+    $this->testUser = User::factory()->create();
+    $this->testEmployee = Employee::factory()->create([
+        'user_id' => $this->testUser->id,
+        'company_id' => $this->organization->id
+    ]);
+    $this->adminUser = User::factory()->create();
+    $this->adminEmployee = Employee::factory()->create([
+        'user_id' => $this->adminUser->id,
+        'company_id' => $this->organization->id
+    ]);
+    $this->admin = Admin::factory()->create([
+        'employee_id' => $this->adminEmployee->id,
+    ]);
+    $this->actingAs($this->adminUser);
+    $this->employeeProfileService = $this->createMock(EmployeeProfileService::class);
+});
 
-    $this->actingAs($admin, 'admin');
-
-    $response = $this->get(route('admin.employee.profile', ['id' => $employee->id]));
-
+it('can view employee profile', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $this->employeeProfileService->method('getEmployeeProfileData')
+        ->with($this->admin->id, $this->adminEmployee->id)
+        ->willReturn(['employee' => $this->adminEmployee, 'pageTitle' => 'Employee Profile Page', 'editMode' => false]);
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->get(route('admin.employee.profile', ['employee' => $this->adminEmployee->id]));
     $response->assertStatus(200)
-             ->assertSee('Employee Profile Page')
-             ->assertSee($employee->name);
+             ->assertViewIs('admin.employee-profile')
+             ->assertSee($this->adminEmployee->name);
 });
 
-test('admin updates name', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['name' => 'Updated Name'];
+it('can update test user employee profile by admin', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $data = [
+        'name' => 'Updated Test User Name',
+        'name_cn' => 'Updated Name',
+        'phone' => '1234567890',
+        'department' => 'Updated Department',
+        'designation' => 'Updated Designation',
+        'is_active' => true,
+    ];
+    $this->employeeProfileService->expects($this->once())
+        ->method('updateEmployeeProfile')
+        ->with($data, $this->testEmployee->id, null);
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->put(route('admin.employee.update', ['employee' => $this->testEmployee->id]), $data);
+    $response->assertRedirect(route('admin.employee.profile', ['employee' => $this->testEmployee->id]))
+             ->assertSessionHas('success', 'Profile updated successfully!');
+});
 
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
+it('returns error when updating test user employee profile fails', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $data = [
+        'name' => 'Updated Test User Name',
+        'name_cn' => 'Updated Name',
+        'phone' => '1234567890',
+        'department' => 'Updated Department',
+        'designation' => 'Updated Designation',
+        'is_active' => true,
+    ];
+    $this->employeeProfileService->expects($this->once())
+        ->method('updateEmployeeProfile')
+        ->willThrowException(new \Exception('Update failed'));
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->put(route('admin.employee.update', ['employee' => $this->testEmployee->id]), $data);
     $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'name' => 'Updated Name']);
+             ->assertSessionHasErrors(['error' => 'Failed to update profile. Please try again.']);
 });
 
-test('admin updates Chinese name', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['name_cn' => 'Updated Chinese Name'];
+it('can create a new employee profile', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $data = [
+        'name' => 'New Employee',
+        'name_cn' => 'New Employee',
+        'email' => 'newemployee@example.com',
+        'phone' => '0987654321',
+        'department' => 'New Department',
+        'designation' => 'New Designation',
+        'is_active' => true,
+    ];
+    $this->employeeProfileService->expects($this->once())
+        ->method('storeEmployee')
+        ->with($data, $this->admin->id);
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->post(route('admin.employee.store'), $data);
+    $response->assertRedirect(route('admin.dashboard'))
+             ->assertSessionHas('success', 'Employee created successfully!');
+});
 
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
+it('returns error when creating a new employee profile fails', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $data = [
+        'name' => 'New Employee',
+        'name_cn' => 'New Employee',
+        'email' => 'newemployee@example.com',
+        'phone' => '0987654321',
+        'department' => 'New Department',
+        'designation' => 'New Designation',
+        'is_active' => true,
+    ];
+    $this->employeeProfileService->expects($this->once())
+        ->method('storeEmployee')
+        ->willThrowException(new \Exception('Creation failed'));
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->post(route('admin.employee.store'), $data);
     $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'name_cn' => 'Updated Chinese Name']);
+             ->assertSessionHasErrors(['error' => 'Failed to create employee. Please try again.']);
 });
 
-test('admin updates phone number', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['phone' => '1234567890'];
+it('can delete admin employee profile', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $this->employeeProfileService->expects($this->once())
+        ->method('destroyEmployee')
+        ->with($this->admin->id, $this->adminEmployee->id);
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->delete(route('admin.employee.destroy', ['employee' => $this->adminEmployee->id]));
+    $response->assertRedirect(route('admin.dashboard'))
+             ->assertSessionHas('success', 'Employee deleted successfully.');
+});
 
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
+it('returns error when deleting employee profile fails', function () {
+    session(['admin_id' => $this->admin->id]);
+    session(['employee_id' => $this->adminEmployee->id]);
+    $this->employeeProfileService->expects($this->once())
+        ->method('destroyEmployee')
+        ->willThrowException(new \Exception('Deletion failed'));
+    app()->instance(EmployeeProfileService::class, $this->employeeProfileService);
+    $response = $this->delete(route('admin.employee.destroy', ['employee' => $this->adminEmployee->id]));
     $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'phone' => '1234567890']);
+             ->assertSessionHasErrors(['error' => 'Failed to delete employee.']);
 });
 
-test('admin updates company name', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['company_name' => 'New Company Name'];
-
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
-    $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'company_name' => 'New Company Name']);
-});
-
-test('admin updates department', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['department' => 'New Department'];
-
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
-    $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'department' => 'New Department']);
-});
-
-test('admin updates designation', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['designation' => 'New Designation'];
-
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
-    $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'designation' => 'New Designation']);
-});
-
-test('admin updates is active status', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-    $data = ['is_active' => false];
-
-    $response = $this->actingAs($admin, 'admin')
-                     ->put(route('admin.employee.update', ['id' => $employee->id]), $data);
-
-    $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    $this->assertDatabaseHas('employees', ['id' => $employee->id, 'is_active' => false]);
-});
-
-test('admin cannot update employee profile with invalid data', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-
-    $this->actingAs($admin, 'admin');
-
-    $response = $this->put(route('admin.employee.update', ['id' => $employee->id]), [
-        'name' => '',
-        'email' => 'invalid_email',
+it('returns error when admin is not in the same organization', function () {
+    $differentOrganization = Organization::factory()->create();
+    $differentAdminUser = User::factory()->create();
+    $differentAdminEmployee = Employee::factory()->create([
+        'user_id' => $differentAdminUser->id,
+        'company_id' => $differentOrganization->id
     ]);
-
-    $response->assertSessionHasErrors();
-});
-
-test('admin can cancel employee profile update', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-
-    $this->actingAs($admin, 'admin');
-
-    $originalName = $employee->name;
-
-    $response = $this->put(route('admin.employee.update', ['id' => $employee->id]), [
-        'name' => $originalName,
-        'email' => $employee->email,
+    $differentAdmin = Admin::factory()->create([
+        'employee_id' => $differentAdminEmployee->id,
     ]);
-
-    $response = $this->get(route('admin.employee.profile', ['id' => $employee->id]));
-
-    $response->assertStatus(200)
-             ->assertSee($originalName);
-});
-
-test('admin cannot update employee profile with empty fields', function () {
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create(['employee_id' => $employee->id]);
-
-    $this->actingAs($admin, 'admin');
-
-    $response = $this->put(route('admin.employee.update', ['id' => $employee->id]), [
-        'name' => '',
-        'email' => '',
-    ]);
-
-    $response->assertSessionHasErrors();
+    $this->actingAs($differentAdminUser);
+    session(['admin_id' => $differentAdmin->id]);
+    session(['employee_id' => $differentAdminEmployee->id]);
+    $response = $this->get(route('admin.employee.profile', ['employee' => $this->adminEmployee->id]));
+    $response->assertStatus(403)
+             ->assertSee('Unauthorized access');
 });

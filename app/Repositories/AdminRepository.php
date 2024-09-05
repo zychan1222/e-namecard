@@ -1,17 +1,12 @@
 <?php
-
 namespace App\Repositories;
 
-use App\Models\Employee;
 use App\Models\Admin;
 
 class AdminRepository
 {
-
-    public function getAdminByEmployeeId(int $employeeId)
+    public function findByEmployeeId($employeeId)
     {
         return Admin::where('employee_id', $employeeId)->first();
     }
-    
 }
-?>

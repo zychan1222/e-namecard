@@ -4,7 +4,6 @@ return [
 
     'defaults' => [
         'guard' => 'web',
-        'passwords' => 'employees',
     ],
 
     'guards' => [
@@ -20,8 +19,8 @@ return [
         ],
 
         'admin' => [
-            'driver' => 'session', // Use session driver for admin guard
-            'provider' => 'admins', // Use 'admins' provider for admin guard
+            'driver' => 'session',
+            'provider' => 'admins',
         ],
     ],
 

@@ -1,43 +1,73 @@
 <?php
 
 use App\Services\ProfileService;
+use App\Repositories\EmployeeRepository;
+use App\Repositories\UserRepository;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Tests\TestCase;
 
-test('uploads profile picture correctly', function () {
-    Storage::fake('public'); 
+beforeEach(function () {
+    $this->employeeRepository = Mockery::mock(EmployeeRepository::class);
+    $this->userRepository = Mockery::mock(UserRepository::class);
 
-    // Mocking a request with a file upload
-    $file = UploadedFile::fake()->image('profile.jpg');
-
-    // Mocking a request instance
-    $request = $this->mock(\Illuminate\Http\Request::class);
-    $request->shouldReceive('hasFile')->with('profile_pic')->andReturn(true);
-    $request->shouldReceive('file')->with('profile_pic')->andReturn($file);
-
-    // Creating an instance of ProfileService
-    $profileService = new ProfileService();
-
-    // Handling profile picture upload
-    $result = $profileService->handleProfilePictureUpload($request);
-
-    // Asserting the result
-    expect($result)->not()->toBeNull();
-    expect($result)->toBeString();
-    expect(Storage::disk('public')->exists('profile_pics/' . $result))->toBeTrue();
+    $this->profileService = new ProfileService($this->employeeRepository, $this->userRepository);
 });
-test('returns null when no file is uploaded', function () {
-    // Mocking a request instance
-    $request = $this->mock(\Illuminate\Http\Request::class);
-    $request->shouldReceive('hasFile')->with('profile_pic')->andReturn(false);
 
-    // Creating an instance of ProfileService
-    $profileService = new ProfileService();
+it('retrieves employee by id', function () {
+    $employeeId = 1;
+    $employee = (object) ['id' => $employeeId];
 
-    // Handling profile picture upload
-    $result = $profileService->handleProfilePictureUpload($request);
+    $this->employeeRepository->shouldReceive('findById')
+        ->with($employeeId)
+        ->andReturn($employee);
 
-    // Asserting the result
-    expect($result)->toBeNull();
+    $result = $this->profileService->getEmployeeById($employeeId);
+
+    expect($result)->toBe($employee);
+});
+
+it('retrieves user email by user id', function () {
+    $userId = 1;
+    $user = (object) ['id' => $userId, 'email' => 'john@example.com'];
+
+    $this->userRepository->shouldReceive('findById')
+        ->with($userId)
+        ->andReturn($user);
+
+    $email = $this->profileService->getUserEmail($userId);
+
+    expect($email)->toBe('john@example.com');
+});
+
+it('returns "Email not available" if user not found', function () {
+    $userId = 1;
+
+    $this->userRepository->shouldReceive('findById')
+        ->with($userId)
+        ->andReturn(null);
+
+    $email = $this->profileService->getUserEmail($userId);
+
+    expect($email)->toBe('Email not available');
+});
+
+it('updates employee profile and deletes old profile picture', function () {
+    $employeeId = 1;
+    $oldProfilePic = 'old_profile.jpg';
+    $newProfilePic = UploadedFile::fake()->image('new_profile.jpg');
+    $employee = (object) ['id' => $employeeId, 'profile_pic' => $oldProfilePic];
+    $data = ['name' => 'John Doe', 'profile_pic' => $newProfilePic];
+
+    $this->employeeRepository->shouldReceive('findById')
+        ->with($employeeId)
+        ->andReturn($employee);
+
+    $this->employeeRepository->shouldReceive('update')
+        ->with($employee, ['name' => 'John Doe', 'profile_pic' => 'new_profile.jpg'])
+        ->once();
+
+    // Call the method
+    $this->profileService->updateProfile($employee, $data);
+
+    // Assert that the old profile picture was deleted
+    expect(file_exists(public_path('storage/profile_pics/' . $oldProfilePic)))->toBeFalse();
 });

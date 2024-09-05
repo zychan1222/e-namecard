@@ -1,78 +1,115 @@
 <?php
 
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Http\UploadedFile;
-use App\Models\Employee;
-use App\Http\Requests\UpdateProfileRequest;
-use Illuminate\Support\Facades\Storage;
+namespace Tests\Feature;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+use App\Models\Employee;
+use App\Models\User;
+use App\Services\ProfileService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Tests\TestCase;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->employee = Employee::factory()->create();
-    $this->actingAs($this->employee);
+    $this->user = User::factory()->create();
+    $this->employee = Employee::factory()->create(['user_id' => $this->user->id]);
+    session(['employee_id' => $this->employee->id]);
+    $this->profileService = mock(ProfileService::class);
+    app()->instance(ProfileService::class, $this->profileService);
 });
 
-test('employee can view profile page', function () {
-    $response = $this->get(route('profile.view'));
+it('views profile and returns profile view with employee data', function () {
+    $this->profileService->shouldReceive('getEmployeeById')
+        ->once()
+        ->with($this->employee->id)
+        ->andReturn($this->employee);
+
+    $this->profileService->shouldReceive('getUserEmail')
+        ->once()
+        ->with($this->employee->user_id)
+        ->andReturn('user@example.com');
+
+    $response = $this->actingAs($this->user)->get(route('profile.view'));
 
     $response->assertStatus(200)
-             ->assertSee('Profile Page')
-             ->assertSee($this->employee->name);
+             ->assertViewIs('profile')
+             ->assertViewHas('employee', $this->employee)
+             ->assertViewHas('email', 'user@example.com');
 });
 
-test('update profile picture', function () {
-    Storage::fake('public');
+it('redirects to login if employee not found when viewing profile', function () {
+    $this->profileService->shouldReceive('getEmployeeById')
+        ->once()
+        ->andReturn(null);
 
-    $file = UploadedFile::fake()->image('profile.jpg');
+    $response = $this->actingAs($this->user)->get(route('profile.view'));
 
-    $response = $this->put(route('profile.update'), ['profile_pic' => $file]);
-
-    $response->assertRedirect()
-             ->assertSessionHas('success', 'Profile updated successfully');
-
-    Storage::disk('public')->assertExists('profile_pics/' . $file->hashName());
-    $this->assertDatabaseHas('employees', ['id' => $this->employee->id, 'profile_pic' => $file->hashName()]);
+    $response->assertRedirect(route('login'))
+             ->assertSessionHas('error', 'Employee not found.');
 });
 
-test('update profile fields', function () {
+it('returns edit view with employee data', function () {
+    $this->profileService->shouldReceive('getEmployeeById')
+        ->once()
+        ->with($this->employee->id)
+        ->andReturn($this->employee);
+
+    $this->profileService->shouldReceive('getUserEmail')
+        ->once()
+        ->with($this->employee->user_id)
+        ->andReturn('user@example.com');
+
+    $response = $this->actingAs($this->user)->get(route('profile.view'));
+
+    $response->assertStatus(200)
+             ->assertViewIs('profile')
+             ->assertViewHas('employee', $this->employee)
+             ->assertViewHas('email', 'user@example.com');
+});
+
+it('updates profile and returns success message on valid input', function () {
     $data = [
-        'name' => 'Updated Name',
-        'name_cn' => 'Updated Chinese Name',
-        'phone' => '1234567890',
-        'company_name' => 'New Company Name',
-        'department' => 'New Department',
-        'designation' => 'New Designation',
+        'name' => 'New Name',
+        'phone' => '9876543210',
+        'profile_pic' => UploadedFile::fake()->image('profile.jpg')
     ];
 
-    foreach ($data as $field => $value) {
-        $response = $this->put(route('profile.update'), [$field => $value]);
+    $this->profileService->shouldReceive('getEmployeeById')
+        ->once()
+        ->with($this->employee->id)
+        ->andReturn($this->employee);
 
-        $response->assertRedirect()
-                 ->assertSessionHas('success', 'Profile updated successfully');
+    $this->profileService->shouldReceive('updateProfile')
+        ->once()
+        ->with($this->employee, $data)
+        ->andReturn(true);
 
-        $this->assertDatabaseHas('employees', ['id' => $this->employee->id, $field => $value]);
-    }
+    $response = $this->actingAs($this->user)->put(route('profile.update'), $data);
+
+    $response->assertRedirect()
+             ->assertSessionHas('success', 'Profile updated successfully!');
 });
 
-test('employee cannot update profile with invalid data', function () {
-    $response = $this->put(route('profile.update'), ['name' => '']);
+it('returns error message on exception during profile update', function () {
+    $data = [
+        'name' => 'New Name',
+        'phone' => '9876543210',
+        'profile_pic' => UploadedFile::fake()->image('profile.jpg')
+    ];
 
-    $response->assertSessionHasErrors();
-});
+    $this->profileService->shouldReceive('getEmployeeById')
+        ->once()
+        ->with($this->employee->id)
+        ->andReturn($this->employee);
 
-test('employee can cancel profile update', function () {
-    // Simulate canceling profile update
-    $response = $this->put(route('profile.update'), ['name' => $this->employee->name]);
+    $this->profileService->shouldReceive('updateProfile')
+        ->once()
+        ->with($this->employee, $data)
+        ->andThrow(new \Exception('Update error'));
 
-    $response = $this->get(route('profile.view'));
+    $response = $this->actingAs($this->user)->put(route('profile.update'), $data);
 
-    $response->assertStatus(200)
-             ->assertDontSee('Updated Name');
-});
-
-test('employee cannot update profile with empty name field', function () {
-    $response = $this->put(route('profile.update'), ['name' => '']);
-
-    $response->assertSessionHasErrors();
+    $response->assertRedirect()
+             ->assertSessionHas('error', 'An error occurred while updating the profile.');
 });

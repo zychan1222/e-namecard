@@ -3,58 +3,68 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\UserService;
-use App\Services\ProfileService;
 use App\Http\Requests\UpdateProfileRequest;
+use App\Services\ProfileService;
 
 class ProfileController extends Controller
 {
-    protected $userService;
     protected $profileService;
 
-    public function __construct(UserService $userService, ProfileService $profileService)
+    public function __construct(ProfileService $profileService)
     {
-        $this->userService = $userService;
         $this->profileService = $profileService;
     }
 
     public function view()
     {
-        $employee = auth()->user();
+        $employeeId = session('employee_id');
+        $employee = $this->profileService->getEmployeeById($employeeId);
+        
+        if (!$employee) {
+            return redirect()->route('login')->with('error', 'Employee not found.');
+        }
+
+        // Fetch the email from the users table
+        $email = $this->profileService->getUserEmail($employee->user_id);
+
         $pageTitle = 'Profile Page';
         $editMode = false;
-        return view('profile', compact('employee', 'pageTitle', 'editMode'));
+        return view('profile', compact('employee', 'pageTitle', 'editMode', 'email'));
     }
     
     public function edit()
     {
-        $employee = auth()->user();
+        $employeeId = session('employee_id');
+        $employee = $this->profileService->getEmployeeById($employeeId);
+        
+        if (!$employee) {
+            return redirect()->route('login')->with('error', 'Employee not found.');
+        }
+
+        // Fetch the email from the users table
+        $email = $this->profileService->getUserEmail($employee->user_id);
+
         $pageTitle = 'Edit Profile';
         $editMode = true;
-        return view('profile', compact('employee', 'pageTitle', 'editMode'));
+        return view('profile', compact('employee', 'pageTitle', 'editMode', 'email'));
     }
 
     public function update(UpdateProfileRequest $request)
     {
-        $user = auth()->user();
-
-        try {
-            $data = $this->getValidatedData($request);
-
-            if ($profilePic = $this->profileService->handleProfilePictureUpload($request)) {
-                $data['profile_pic'] = $profilePic;
-            }
-
-            $this->userService->updateProfile($user, $data);
-
-            return redirect()->back()->with('success', 'Profile updated successfully');
-        } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
+        $employeeId = session('employee_id');
+        $employee = $this->profileService->getEmployeeById($employeeId);
+    
+        if (!$employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
         }
-    }
-
-    protected function getValidatedData(UpdateProfileRequest $request)
-    {
-        return $request->validated();
-    }
+    
+        try {
+            $data = $request->validated();
+            $this->profileService->updateProfile($employee, $data);
+    
+            return redirect()->back()->with('success', 'Profile updated successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'An error occurred while updating the profile.');
+        }
+    }    
 }

@@ -3,63 +3,64 @@
 namespace App\Services;
 
 use App\Repositories\UserRepository;
-use App\Models\Employee; 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
+use App\Services\TACService;
 
 class UserService
 {
     protected $userRepository;
+    protected $tacService;
 
-    public function __construct(UserRepository $userRepository)
+    public function __construct(UserRepository $userRepository, TACService $tacService)
     {
         $this->userRepository = $userRepository;
+        $this->tacService = $tacService;
     }
 
-    public function register(array $data)
+    public function generateAndSendTAC($email)
     {
-        $data['password'] = Hash::make($data['password']);
-        $user = $this->userRepository->create($data);
-        auth()->login($user);
-        return $user;
-    }
-
-    public function login(array $credentials)
-    {
-        if (!Auth::attempt($credentials)) {
-            throw ValidationException::withMessages([
-                'email' => ['These credentials do not match our records.'],
-            ]);
+        $user = $this->userRepository->findByEmail($email);
+        if ($user) {
+            $tacCode = $this->tacService->generateTAC();
+            $this->tacService->sendTAC($user, $tacCode);
+            return $user;
         }
+        return null;
+    }
+    
+    public function registerEmail($email)
+    {
+        $user = $this->userRepository->findByEmail($email);
 
-        $user = Auth::user();
-
-        if ($user->is_active != 1) {
-            Auth::logout();
-            throw ValidationException::withMessages([
-                'email' => ['Your account is inactive.'],
-            ]);
+        if ($user) {
+            $this->sendTAC($user);
+        } else {
+            $user = $this->createUserAndSendTAC($email);
         }
 
         return $user;
     }
 
-    public function updateProfile(Employee $employee, array $data)
+    public function findByEmail($email)
     {
-        Log::info('Updating employee profile', ['employee_id' => $employee->id, 'data' => $data]);
-
-        // Use the repository to update the employee
-        $updatedEmployee = $this->userRepository->update($employee, $data);
-
-        Log::info('Employee profile updated', ['employee_id' => $updatedEmployee->id]);
-
-        return $updatedEmployee;
+        return $this->userRepository->findByEmail($email);
+    }
+    
+    protected function sendTAC($user)
+    {
+        $tacCode = $this->tacService->generateTAC();
+        $this->tacService->sendTAC($user, $tacCode);
     }
 
-    public function findById($id): ?Employee
+    protected function createUserAndSendTAC($email)
     {
-        return $this->userRepository->findById($id);
+        $user = $this->userRepository->create(['email' => $email]);
+        $this->sendTAC($user);
+        return $user;
+    }
+
+    public function verifyTAC($email, $tac)
+    {
+        $user = $this->userRepository->findByEmail($email);
+        return $user && $user->tac_code === $tac && now()->lessThanOrEqualTo($user->tac_expiry);
     }
 }

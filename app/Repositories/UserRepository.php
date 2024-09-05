@@ -1,40 +1,28 @@
 <?php
+
 namespace App\Repositories;
 
-use App\Models\Employee;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Models\User;
 
-class UserRepository extends BaseRepository
+class UserRepository
 {
-    public function getModelClass(): string
+    public function findByEmail(string $email)
     {
-        return Employee::class;
+        return User::where('email', $email)->first();
     }
 
-    public function create(array $data): ?Employee
+    public function findById($id)
     {
-        return parent::create($data);
+        return User::find($id);
+    }
+    
+    public function create(array $data)
+    {
+        return User::create($data);
     }
 
-    public function findById($id): ?Employee
+    public function save(User $user)
     {
-        return Employee::find($id);
-    }
-
-    public function findByEmail(string $email): ?Employee
-    {
-        return Employee::where('email', $email)->first();
-    }
-
-    public function getAll(array $filters = []): Collection
-    {
-        
-    }
-
-    public function getAllPaginated(array $filters = []): LengthAwarePaginator
-    {
-
+        $user->save();
     }
 }
-

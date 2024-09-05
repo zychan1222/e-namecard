@@ -18,13 +18,11 @@ class Admin extends Authenticatable
     
     public function employee()
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Employee::class, 'employee_id');
     }
 
-    // Check if the user is an admin
     public function isAdmin()
     {
         return !is_null($this->employee_id);
     }
 }
-

@@ -21,58 +21,53 @@
                                 <!-- Dashboard -->
                                 <a href="{{ route('admin.dashboard') }}"
                                     class="rounded-md {{ request()->routeIs('admin.dashboard') ? 'bg-gray-900' : 'bg-gray-800' }} px-3 py-2 text-sm font-medium text-white hover:bg-gray-700">Dashboard</a>
+                                <!-- Manage Organizations -->
+                                <a href="{{ route('admin.organization') }}"
+                                    class="rounded-md {{ request()->routeIs('admin.organization') ? 'bg-gray-900' : 'bg-gray-800' }} px-3 py-2 text-sm font-medium text-white hover:bg-gray-700">Manage Organization</a>
                             </div>
                         </div>
                     </div>
                     <div class="hidden md:flex items-center space-x-4">
-                        <!-- Admin details -->
-<!-- Header section -->
-<div class="text-white text-right mr-4">
-    @auth
-        @if(auth()->user()->isAdmin())
-            @php
-                $employee = \App\Models\Employee::find(auth()->user()->employee_id);
-            @endphp
-            @if($employee)
-                <p class="text-sm font-medium">{{ $employee->name }}</p>
-                <p class="text-xs">{{ $employee->designation }}</p>
-            @endif
-        @else
-            <p class="text-sm font-medium">{{ auth()->user()->name }}</p>
-            <p class="text-xs">{{ auth()->user()->designation }}</p>
-        @endif
-    @endauth
-</div>
-
-                        <!-- Profile dropdown -->
-                        <div class="relative">
-                            <button type="button"
-                                class="relative flex max-w-xs items-center rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
-                                id="user-menu-button" aria-expanded="false" aria-haspopup="true">
-                                <span class="absolute -inset-1.5"></span>
-                                <span class="sr-only">Open user menu</span>
-                                <img class="h-10 w-10 rounded-full"
-                                    src="{{ $employee->profile_pic ? asset('storage/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}"
-                                    alt="">
-                            </button>
-                            <!-- Dropdown menu, show/hide based on menu state -->
-                            <div id="dropdown-menu"
-                                class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
-                                role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button"
-                                tabindex="-1">
-
-                                <div>
-                                    <form method="POST" action="{{ route('adminlogout') }}" id="logout-form">
-                                        @csrf
-                                        <button type="submit"
-                                            class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                            role="menuitem" tabindex="-1" id="user-menu-item-1">
-                                            Sign Out
-                                        </button>
-                                    </form>
+                        @php
+                            $employeeId = session('employee_id');
+                            $employee = $employeeId ? \App\Models\Employee::find($employeeId) : null;
+                        @endphp
+                        @if ($employee)
+                            <div class="text-white text-right mr-4">
+                                <span class="block text-sm font-semibold">{{ $employee->name }}</span>
+                                <span class="block text-xs">{{ $employee->designation }}</span>
+                            </div>
+                            <!-- Profile dropdown -->
+                            <div class="relative">
+                                <button type="button"
+                                    class="relative flex max-w-xs items-center rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
+                                    id="user-menu-button" aria-expanded="false" aria-haspopup="true">
+                                    <span class="absolute -inset-1.5"></span>
+                                    <span class="sr-only">Open user menu</span>
+                                    <img src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-10 h-10 rounded-full">
+                                </button>
+                                <!-- Dropdown menu, show/hide based on menu state -->
+                                <div id="dropdown-menu"
+                                    class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+                                    role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button"
+                                    tabindex="-1">
+                                    <div>
+                                        <form method="POST" action="{{ route('adminlogout') }}" id="logout-form">
+                                            @csrf
+                                            <button type="submit"
+                                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                                role="menuitem" tabindex="-1" id="user-menu-item-1">
+                                                Sign Out
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        @else
+                            <div class="text-white text-right mr-4">
+                                <span class="block text-sm font-semibold">Guest</span>
+                            </div>
+                        @endif
                     </div>
                     <div class="-mr-2 flex md:hidden">
                         <!-- Mobile menu button -->

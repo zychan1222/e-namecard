@@ -2,51 +2,94 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\UserService;
-use App\Services\ProfileService;
 use App\Http\Requests\UpdateProfileRequest;
+use App\Http\Requests\StoreEmployeeRequest;
+use App\Services\EmployeeProfileService;
 use Illuminate\Support\Facades\Log;
 
 class EmployeeProfileController extends Controller
 {
-    protected $userService;
-    protected $profileService;
+    protected $employeeProfileService;
 
-    public function __construct(UserService $userService, ProfileService $profileService)
+    public function __construct(EmployeeProfileService $employeeProfileService)
     {
-        $this->userService = $userService;
-        $this->profileService = $profileService;
+        $this->employeeProfileService = $employeeProfileService;
     }
 
-    public function viewEmployeeProfile($id)
+    public function viewEmployeeProfile($employeeId)
     {
-        $employee = $this->userService->findById($id);
-        $pageTitle = 'Employee Profile Page';
-        $editMode = false;
-        return view('admin.employee-profile', compact('employee', 'pageTitle', 'editMode'));
-    }
+        $adminId = session('admin_id');
 
-    public function update(UpdateProfileRequest $request, $id)
-    {
-        $employee = $this->userService->findById($id);
+        if (!$adminId) {
+            return redirect()->route('admin.login.form')->withErrors(['error' => 'Unauthorized access. Please log in as an admin.']);
+        }
 
         try {
-            $data = $request->validated();
-
-            Log::info('Validated data', ['data' => $data]);
-
-            // Update logic
-            $this->userService->updateProfile($employee, $data);
-
-            Log::info('Employee profile updated successfully', ['employee_id' => $employee->id]);
-
-            return redirect()->route('admin.employee.profile', ['id' => $id])
-                             ->with('success', 'Profile updated successfully');
+            $data = $this->employeeProfileService->getEmployeeProfileData($adminId, $employeeId);
+            return view('admin.employee-profile', $data);
         } catch (\Exception $e) {
-            Log::error('Error updating employee profile', ['employee_id' => $employee->id, 'error' => $e->getMessage()]);
+            Log::error('Error fetching employee profile', ['employee_id' => $employeeId, 'error' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to retrieve employee profile.']);
+        }
+    }
 
-            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
+    public function update(UpdateProfileRequest $request, $employeeId)
+    {
+        try {
+            $data = $request->validated();
+            $this->employeeProfileService->updateEmployeeProfile($data, $employeeId, $request->file('profile_pic'));
+            return redirect()->route('admin.employee.profile', ['employee' => $employeeId])
+                             ->with('success', 'Profile updated successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error updating employee profile', ['employee_id' => $employeeId, 'error' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to update profile. Please try again.']);
+        }
+    }    
+
+    public function create()
+    {
+        $adminId = session('admin_id');
+
+        if (!$adminId) {
+            return redirect()->route('admin.login.form')->withErrors(['error' => 'Unauthorized access. Please log in as an admin.']);
+        }
+
+        try {
+            $data = $this->employeeProfileService->getCreateEmployeeData($adminId);
+            return view('admin.create-employee', $data);
+        } catch (\Exception $e) {
+            Log::error('Error fetching data for creating employee', ['error' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to retrieve data for creating employee.']);
+        }
+    }
+
+    public function store(StoreEmployeeRequest $request)
+    {
+        try {
+            $data = $request->validated();
+            $adminId = session('admin_id');
+            $this->employeeProfileService->storeEmployee($data, $adminId);
+            return redirect()->route('admin.dashboard')->with('success', 'Employee created successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error creating employee', ['error' => $e->getMessage(), 'data' => $request->all()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to create employee. Please try again.']);
+        }
+    }
+
+    public function destroy($employeeId)
+    {
+        $adminId = session('admin_id');
+
+        if (!$adminId) {
+            return redirect()->route('admin.login.form')->withErrors(['error' => 'Unauthorized access. Please log in as an admin.']);
+        }
+
+        try {
+            $this->employeeProfileService->destroyEmployee($adminId, $employeeId);
+            return redirect()->route('admin.dashboard')->with('success', 'Employee deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting employee', ['employee_id' => $employeeId, 'error' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Failed to delete employee.']);
         }
     }
 }
-

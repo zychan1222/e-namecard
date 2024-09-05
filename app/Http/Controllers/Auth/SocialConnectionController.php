@@ -7,22 +7,36 @@ use App\Services\SocialConnectionService;
 
 class SocialConnectionController extends Controller
 {
-    protected $SocialConnectionService;
+    protected $socialConnectionService;
 
-    public function __construct(SocialConnectionService $SocialConnectionService)
+    public function __construct(SocialConnectionService $socialConnectionService)
     {
-        $this->SocialConnectionService = $SocialConnectionService;
+        $this->socialConnectionService = $socialConnectionService;
     }
 
     public function redirectToProvider($provider)
     {
-        return $this->SocialConnectionService->redirectToProvider($provider);
+        return $this->socialConnectionService->redirectToProvider($provider);
     }
 
     public function handleCallback($provider)
     {
-        $this->SocialConnectionService->handleCallback($provider);
-
-        return redirect()->intended('/dashboard');
+        $result = $this->socialConnectionService->handleCallback($provider);
+    
+        if ($result instanceof \Illuminate\Http\RedirectResponse) {
+            return $result;
+        }
+    
+        // If we have a valid user, proceed with getting employee entries
+        $user = $result;
+    
+        $employeeEntries = $this->socialConnectionService->getEmployeeEntries($user->id);
+    
+        session(['user_id' => $user->id]);
+        session(['employeeEntries' => $employeeEntries]);
+    
+        return redirect()->route('admin.select.organization')->with(['email' => $user->email]);
     }
+    
+    
 }

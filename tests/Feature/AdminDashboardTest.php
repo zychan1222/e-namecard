@@ -2,77 +2,98 @@
 
 use App\Models\Admin;
 use App\Models\Employee;
+use App\Models\User;
+use App\Models\Organization;
+use App\Services\AdminDashboardService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Pagination\LengthAwarePaginator;
 
+uses(RefreshDatabase::class)->group('admin-dashboard');
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+beforeEach(function () {
+    $this->organization = Organization::factory()->create();
+    $this->user = User::factory()->create();
+    $this->employee = Employee::factory()->create([
+        'user_id' => $this->user->id,
+        'company_id' => $this->organization->id,
+    ]);
+    $this->admin = Admin::factory()->create(['employee_id' => $this->employee->id]);
 
-test('guests are redirected to login', function () {
-    $response = $this->get(route('admin.dashboard'));
-    $response->assertRedirect(route('admin.login'));
+    $this->adminDashboardServiceMock = $this->createMock(AdminDashboardService::class);
+    $this->app->instance(AdminDashboardService::class, $this->adminDashboardServiceMock);
+
+    $this->assertNotNull($this->employee); // Ensure the employee is created
 });
 
-test('authenticated admin can access dashboard', function () {
-    $employee = Employee::factory()->create([
+it('shows the admin dashboard', function () {
+    $this->withSession([
+        'admin_id' => $this->admin->id,
+        'employee_id' => $this->employee->id,
     ]);
 
-    $admin = Admin::factory()->create([
-        'employee_id' => $employee->id,
-    ]);
+    $this->adminDashboardServiceMock
+        ->method('getAdminEmployeeDetails')
+        ->with($this->admin->id)
+        ->willReturn([$this->admin, $this->employee]);
 
-    $this->actingAs($admin, 'admin');
+    $employees = collect([$this->employee]);
+    $paginatedEmployees = new LengthAwarePaginator(
+        $employees->forPage(1, 10),
+        $employees->count(),
+        10,
+        1,
+        ['path' => url()->current()]
+    );
+
+    $this->adminDashboardServiceMock
+        ->method('fetchEmployees')
+        ->with($this->employee->company_id, null, 'all', 'name_asc')
+        ->willReturn($paginatedEmployees);
+
+    $searchMessage = "Welcome! You can search for employees, filter by roles, and sort results.";
+    $this->adminDashboardServiceMock
+        ->method('getSearchMessage')
+        ->willReturn($searchMessage);
 
     $response = $this->get(route('admin.dashboard'));
-    $response->assertStatus(200);
-    $response->assertSeeText('Admin Dashboard');
-    $response->assertSeeText('Welcome back, ' . $employee->name);
+
+    $response->assertStatus(200)
+        ->assertViewIs('admin.dashboard')
+        ->assertSee($this->employee->name)
+        ->assertViewHas('searchMessage', $searchMessage)
+        ->assertViewHas('employees', $paginatedEmployees);
 });
 
-test('employee list is displayed correctly', function () {
-    $employee = Employee::factory()->create([
-    ]);
-
-    $admin = Admin::factory()->create([
-        'employee_id' => $employee->id,
-    ]);
-
-    $this->actingAs($admin, 'admin');
-
+it('redirects to login form if admin not authenticated', function () {
     $response = $this->get(route('admin.dashboard'));
-    $response->assertStatus(200);
-    $response->assertSeeText('Employee List');
-
-    $response->assertSeeText($employee->name);
-    $response->assertSeeText($employee->email);
-    $response->assertSee($employee->profile_pic ? asset('storage/' . $employee->profile_pic) : asset('storage/default-user.jpg'));
+    $response->assertRedirect(route('admin.login.form'));
 });
 
-test('employee list pagination', function () {
-    // Create an admin and associate with an employee
-    $employee = Employee::factory()->create();
-    $admin = Admin::factory()->create([
-        'employee_id' => $employee->id,
-    ]);
+it('redirects to login form if searching without being authenticated', function () {
+    $response = $this->get(route('admin.dashboard.search'));
+    $response->assertRedirect(route('admin.login.form'));
+});
 
-    // Create additional employees for pagination
-    Employee::factory()->count(15)->create();
+it('updates roles successfully', function () {
+    $this->withSession(['admin_id' => $this->admin->id, 'employee_id' => $this->employee->id]);
 
-    // Acting as admin for authentication
-    $this->actingAs($admin, 'admin');
+    $this->adminDashboardServiceMock
+        ->method('getAdminEmployeeDetails')
+        ->with($this->admin->id)
+        ->willReturn([$this->admin, $this->employee]);
 
-    // Make a GET request to the admin dashboard route
-    $response = $this->get(route('admin.dashboard'));
+    $roles = [$this->employee->id => 'admin'];
+    $this->adminDashboardServiceMock
+        ->expects($this->once())
+        ->method('updateEmployeeRoles')
+        ->with($roles, $this->employee->company_id);
 
-    // Assert that the response status is 200 (OK)
-    $response->assertStatus(200);
+    $response = $this->post(route('admin.update-roles'), ['roles' => $roles]);
 
-    // Assert that the first page of employees is displayed
-    $response->assertSeeInOrder(Employee::orderBy('id')->take(10)->pluck('name')->toArray());
+    $response->assertRedirect()->with('success', 'Employee roles updated successfully');
+});
 
-    // Click on the "Next" link and assert the second page of employees
-    $response = $this->get(route('admin.dashboard', ['page' => 2]));
-    $response->assertSeeInOrder(Employee::orderBy('id')->skip(10)->take(10)->pluck('name')->toArray());
-
-    // Click on the "Previous" link and assert back to the first page
-    $response = $this->get(route('admin.dashboard', ['page' => 1]));
-    $response->assertSeeInOrder(Employee::orderBy('id')->take(10)->pluck('name')->toArray());
+it('redirects to login form if updating roles without being authenticated', function () {
+    $response = $this->post(route('admin.update-roles'));
+    $response->assertRedirect(route('admin.login.form'));
 });
