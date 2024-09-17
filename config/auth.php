@@ -9,36 +9,26 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'employees', // Use 'employees' provider for web guard
+            'provider' => 'users',
         ],
 
         'api' => [
             'driver' => 'token',
-            'provider' => 'employees', // Use 'employees' provider for api guard
+            'provider' => 'users',
             'hash' => false,
-        ],
-
-        'admin' => [
-            'driver' => 'session',
-            'provider' => 'admins',
         ],
     ],
 
     'providers' => [
-        'employees' => [
+        'users' => [
             'driver' => 'eloquent',
-            'model' => App\Models\Employee::class,
-        ],
-
-        'admins' => [
-            'driver' => 'eloquent',
-            'model' => App\Models\Admin::class,
+            'model' => App\Models\User::class,
         ],
     ],
 
     'passwords' => [
-        'employees' => [
-            'provider' => 'employees', // Use 'employees' provider for employee passwords
+        'users' => [
+            'provider' => 'users',
             'table' => 'password_resets',
             'expire' => 60,
             'throttle' => 60,

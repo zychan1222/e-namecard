@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SendTACRequest;
 use App\Http\Requests\LoginWithTACRequest;
-use App\Services\AuthService;
-use Illuminate\Support\Facades\Auth;
+use App\Services\AdminAuthService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class AdminAuthController extends Controller
 {
-    protected $authService;
+    protected $adminAuthService;
 
-    public function __construct(AuthService $authService)
+    public function __construct(AdminAuthService $adminAuthService)
     {
-        $this->authService = $authService;
+        $this->adminAuthService = $adminAuthService;
     }
 
     public function showAdminLoginForm()
@@ -25,88 +26,85 @@ class AdminAuthController extends Controller
     public function sendTAC(SendTACRequest $request)
     {
         $email = $request->input('email');
-        $user = $this->authService->generateAndSendTAC($email);
-        
-        if ($user) {
-            session(['email' => $email]); 
-            return redirect()->route('admin.login.tac.show')->with('success', 'TAC sent successfully to your email.');
+
+        if ($this->adminAuthService->sendTAC($email)) {
+            return redirect()->route('admin.login.tac.show', ['email' => $email])->with('success', 'TAC sent successfully to your email.');
         }
 
         return redirect()->route('admin.login.form')->withErrors(['email' => 'No user found with this email.']);
+    }
+
+    public function showTACForm(Request $request, $email)
+    {
+        return view('auth.admin-tac', ['email' => $email]);
     }
 
     public function loginWithTAC(LoginWithTACRequest $request)
     {
         $email = $request->input('email');
         $tacCode = $request->input('tac_code');
-        $user = $this->authService->authenticateUser($email, $tacCode);
 
-        if ($user) {
-            $this->storeUserInSession($user);
-            return redirect()->route('admin.select.organization')->with('success', 'Logged in successfully.');
+        if ($this->adminAuthService->verifyTAC($email, $tacCode)) {
+
+            $users = $this->adminAuthService->getUserOrganizations([$email]);
+
+            return redirect()->route('admin.select.organization', ['email' => $email]);
         }
 
-        return redirect()->route('admin.login.tac.show')->withErrors(['tac_code' => 'Invalid TAC code or it has expired.']);
+        return redirect()->route('admin.login.tac.show', ['email' => $email])
+            ->withErrors(['tac_code' => 'Invalid TAC code or it has expired.']);
     }
 
-    protected function storeUserInSession($user)
+    public function showOrganizationSelectionForm(Request $request)
     {
-        session(['user_id' => $user->id]);
-        $employeeEntries = $this->authService->getEmployeeEntries($user->id);
-        session(['employeeEntries' => $employeeEntries]);
-    }
+        $email = $request->input('email');
+        $users = $this->adminAuthService->getUserOrganizations([$email]);
 
-    public function showTACForm(Request $request)
-    {
-        return view('auth.admin-tac')->with('email', $request->session()->get('email'));
+        return view('auth.admin-select_organization', ['userOrganizations' => $users]);
     }
-
-    public function showOrganizationSelectionForm()
-    {
-        $employeeEntries = session('employeeEntries', []);
-        return view('auth.admin-select_organization', compact('employeeEntries'));
-    }
-
     public function selectOrganization(Request $request)
     {
-        $employeeId = $request->input('employee_id');
-        $employee = $this->findEmployeeOrFail($employeeId);
-        
-        $admin = $this->authService->findAdmin($employee->id);
-        
-        if ($admin) {
-            $this->storeOrganizationInSession($employee, $admin);
-            return redirect()->route('admin.dashboard')->with('success', 'Organization selected successfully.');
+        $userId = $request->input('user_id');
+        $organizationId = $request->input('organization_id');
+    
+        $userOrganization = $this->adminAuthService->findUserOrganization($userId, $organizationId);
+    
+        if ($userOrganization) {
+    
+            if ($userOrganization->role_id == 3) {
+                return redirect()->route('admin.login.form')
+                    ->withErrors(['role' => 'You do not have permission to access this organization.']);
+            }
+    
+            $user = $this->adminAuthService->loginUser($userId);
+    
+            if ($user) {
+                $organization = $userOrganization->organization;
+    
+                if ($organization) {
+                    return redirect()->route('admin.dashboard')
+                        ->with('success', 'Logged in and organization selected successfully.')
+                        ->with('organization', $organization);
+                } else {
+                    // Handle case where the organization is not found
+                    return redirect()->route('admin.select.organization')
+                        ->withErrors(['organization_id' => 'Organization not found.']);
+                }
+            } else {
+                // Handle case where the user is not found
+                return redirect()->route('admin.select.organization')
+                    ->withErrors(['user_id' => 'User not found.']);
+            }
+        } else {
+            // Handle case where the UserOrganization relationship is not found
+            return redirect()->route('admin.select.organization')
+                ->withErrors(['organization_id' => 'Invalid selection or organization.']);
         }
-
-        return redirect()->route('admin.select.organization')->withErrors(['employee_id' => 'You do not have admin access for this organization.']);
-    }
-
-    protected function findEmployeeOrFail($employeeId)
-    {
-        $employee = $this->authService->findEmployee($employeeId);
+    }    
         
-        if (!$employee) {
-            return redirect()->route('admin.select.organization')->withErrors(['employee_id' => 'Invalid selection.']);
-        }
-
-        return $employee;
-    }
-
-    protected function storeOrganizationInSession($employee, $admin)
-    {
-        session(['company_id' => $employee->company_id]);
-        session(['employee_id' => $employee->id]);
-        session(['admin_id' => $admin->id]); 
-
-        Auth::loginUsingId($employee->user_id);
-        session(['current_employee' => $employee]);
-    }
-
     public function adminLogout()
     {
-        Auth::guard('admin')->logout();
-        session()->flush();
+        Auth::logout();
         return redirect('/')->with('success', 'Logged out successfully.');
     }
 }

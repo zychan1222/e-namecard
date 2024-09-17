@@ -101,19 +101,19 @@
     </div>
     <h1>User Details</h1>
     <div class="details">
-        <img class="profile-pic" src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture">
-        <p><strong>Name:</strong> {{ $employee->name }}</p>
-        <p><strong>CN Name:</strong> {{ $employee->name_cn }}</p>
-        <p><strong>Email:</strong> {{ $email }}</p>
-        <p><strong>Phone:</strong> {{ $employee->phone }}</p>
-        <p><strong>Company Name:</strong> {{ $employee->organization->name }}</p>
-        <p><strong>Department:</strong> {{ $employee->department }}</p>
-        <p><strong>Designation:</strong> {{ $employee->designation }}</p>
+        <img class="profile-pic" src="{{ $userOrg->user->profile_pic ? asset('storage/profile_pics/' . $userOrg->user->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture">
+        <p><strong>Name:</strong> {{ $userOrg->user->name }}</p>
+        <p><strong>CN Name:</strong> {{ $userOrg->user->name_cn }}</p>
+        <p><strong>Email:</strong> {{ $userOrg->user->email }}</p>
+        <p><strong>Phone:</strong> {{ $userOrg->user->phone }}</p>
+        <p><strong>Company Name:</strong> {{ $userOrg->organization->name }}</p>
+        <p><strong>Department:</strong> {{ $user->department }}</p>
+        <p><strong>Designation:</strong> {{ $user->designation }}</p>
     </div>
 
     <div class="download-section">
         <h2 class="download-title">Download Contact</h2>
-        <a href="{{ secure_url('download-vcard', ['name' => $employee->name, 'phone' => $employee->phone]) }}" class="download-btn">Download VCard</a>
+        <a href="{{ secure_url('download-vcard', ['name' => $userOrg->user->name, 'phone' => $userOrg->user->phone]) }}" class="download-btn">Download VCard</a>
     </div>
 
     <div class="explanation">

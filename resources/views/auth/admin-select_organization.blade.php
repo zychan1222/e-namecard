@@ -81,22 +81,25 @@
                 <h2 class="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Select Organization (Admin)</h2>
             </div>
 
-            <form method="POST" action="{{ route('admin.select.organization.submit') }}">
+            <form method="POST" action="{{ route('admin.select.organization') }}">
                 @csrf
                 <div class="form-group">
-                    @foreach ($employeeEntries as $employee)
-                        <button type="submit" name="employee_id" value="{{ $employee->id }}" class="organization-button mb-2">
-                            <div class="organization-logo">
-                                @if ($employee->organization)
-                                    <img src="{{ $employee->organization->logo ? asset('storage/logo/' . $employee->organization->logo) : asset('storage/default-logo.jpg') }}" alt="Organization Logo">
-                                @else
-                                    <img src="{{ asset('storage/default-logo.jpg') }}" alt="Default Organization Logo">
-                                @endif
-                            </div>
-                            <div class="organization-name">
-                                {{ $employee->organization ? $employee->organization->name : 'No Organization' }}
-                            </div>
-                        </button>
+                    @foreach ($userOrganizations as $userOrganization)
+                        <div class="mb-2">
+                            <form method="POST" action="{{ route('admin.select.organization') }}">
+                                @csrf
+                                <input type="hidden" name="user_id" value="{{ $userOrganization->user_id }}">
+                                <input type="hidden" name="organization_id" value="{{ $userOrganization->organization_id }}">
+                                <button type="submit" class="organization-button">
+                                    <div class="organization-logo">
+                                        <img src="{{ $userOrganization->organization->logo ? asset('storage/logo/' . $userOrganization->organization->logo) : asset('storage/default-logo.jpg') }}" alt="Organization Logo">
+                                    </div>
+                                    <div class="organization-name">
+                                        {{ $userOrganization->organization->name }}
+                                    </div>
+                                </button>
+                            </form>
+                        </div>
                     @endforeach
                 </div>
             </form>

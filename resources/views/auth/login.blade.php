@@ -20,8 +20,8 @@
         }
 
         .alert-danger {
-            color: #a94442; 
-            background-color: #f2dede; 
+            color: #a94442;
+            background-color: #f2dede;
             border-color: #ebccd1;
         }
 
@@ -56,7 +56,7 @@
             <img class="mx-auto h-20 w-auto" src="{{ asset('storage/logo-no-bg.png') }}" alt="Your Company">
             <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Sign in to your account</h2>
 
-            <form method="POST" action="{{ route('login') }}" class="mt-10">
+            <form method="POST" action="{{ route('login.sendTAC') }}" class="mt-10">
                 @csrf
                 <div>
                     <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>

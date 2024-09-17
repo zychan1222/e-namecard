@@ -6,23 +6,24 @@ use App\Models\User;
 
 class UserRepository
 {
-    public function findByEmail(string $email)
-    {
-        return User::where('email', $email)->first();
-    }
-
-    public function findById($id)
-    {
-        return User::find($id);
-    }
-    
     public function create(array $data)
     {
         return User::create($data);
     }
 
-    public function save(User $user)
+    public function findByEmail(string $email)
     {
-        $user->save();
+        return User::where('email', $email)->latest('created_at')->first();
     }
+
+    public function findByEmails(array $emails)
+    {
+        return User::whereIn('email', $emails)->get();
+    }
+
+    public function find(int $id)
+    {
+        return User::find($id);
+    }
+    
 }

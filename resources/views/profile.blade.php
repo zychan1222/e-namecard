@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profile Page</title>
+    <title>{{ $pageTitle }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .alert {
@@ -47,8 +47,8 @@
             <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ $pageTitle }}</h1>
             <div class="flex justify-between items-center mt-4">
                 <div>
-                    <h3 class="text-base font-semibold leading-7 text-gray-900">{{ $editMode ? 'Edit' : 'View' }} Employee Information</h3>
-                    <p class="mt-1 max-w-2xl text-sm leading-6 text-gray-500">{{ $editMode ? 'Edit' : 'Details about' }} the employee.</p>
+                    <h3 class="text-base font-semibold leading-7 text-gray-900">{{ $editMode ? 'Edit' : 'View' }} Profile Information</h3>
+                    <p class="mt-1 max-w-2xl text-sm leading-6 text-gray-500">{{ $editMode ? 'Edit' : 'Details about' }} your profile.</p>
                 </div>
                 <div>
                     <button id="editButton" onclick="toggleEditMode()" class="flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus-visible:outline-none">
@@ -69,7 +69,7 @@
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Profile Picture</dt>
                     <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                        <img src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-24 h-24 border-2 border-gray-300">
+                        <img src="{{ $user->profile_pic ? asset('storage/profile_pics/' . $user->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-24 h-24 border-2 border-gray-300">
                         <input type="file" name="profile_pic" class="mt-2 hidden">
                         <div id="newProfilePicPreview" class="mt-2"></div>
                     </dd>
@@ -77,17 +77,17 @@
                 <!-- User ID -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">User ID</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->id }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->id }}</dd>
                 </div>
                 <!-- Name -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Name</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->name }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->name }}</dd>
                 </div>
                 <!-- CN Name -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Chinese Name</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->name_cn }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->name_cn }}</dd>
                 </div>
                 <!-- Email -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -97,27 +97,27 @@
                 <!-- Phone -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Phone</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->phone }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->phone }}</dd>
                 </div>
                 <!-- Company Name -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Company Name</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->organization->name }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $organizationName }}</dd>
                 </div>
                 <!-- Department -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Department</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->department }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->department }}</dd>
                 </div>
                 <!-- Designation -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Designation</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->designation }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->designation }}</dd>
                 </div>
                 <!-- Is Active -->
                 <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                     <dt class="text-sm font-medium leading-6 text-gray-900">Is Active</dt>
-                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $employee->is_active ? 'Yes' : 'No' }}</dd>
+                    <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $user->is_active ? 'Yes' : 'No' }}</dd>
                 </div>
             </dl>
             <div id="saveButtons" class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0" style="display: {{ $editMode ? 'block' : 'none' }}">
@@ -126,44 +126,58 @@
                         <img src="{{ asset('storage/saveicon.png') }}" alt="Save Icon" class="w-4 h-4 mr-2">
                         Save Changes
                     </button>
-                    <button type="button" onclick="toggleEditMode()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm leading-5 font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">Cancel</button>
+                    <button type="button" onclick="toggleEditMode()" class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm leading-5 font-medium rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:shadow-outline transition ease-in-out duration-150">
+                        Cancel
+                    </button>
                 </div>
             </div>
         </form>
     </div>
 
     <script>
-        let editMode = {{ $editMode ? 'true' : 'false' }};
-
         function toggleEditMode() {
-            const elements = document.querySelectorAll('input[type="text"], input[type="file"], #editButton');
-            elements.forEach(el => {
-                el.classList.toggle('hidden');
-            });
-
-            const spans = document.querySelectorAll('dd > span');
-            spans.forEach(span => {
-                span.classList.toggle('hidden');
-            });
-
-            editMode = !editMode;
-
+            const form = document.getElementById('profileForm');
+            const editButton = document.getElementById('editButton');
             const saveButtons = document.getElementById('saveButtons');
-            saveButtons.style.display = editMode ? 'block' : 'none';
+            const fields = form.querySelectorAll('input, select, textarea');
+
+            if (saveButtons.style.display === 'none') {
+                // Enable edit mode
+                saveButtons.style.display = 'block';
+                editButton.innerHTML = '<img src="{{ asset('storage/editicon.png') }}" alt="Edit Icon" class="w-4 h-4 mr-2"> Cancel Edit';
+                fields.forEach(field => field.removeAttribute('disabled'));
+                document.querySelectorAll('img[src="{{ asset('storage/default-user.jpg') }}"]').forEach(img => {
+                    img.classList.add('hidden');
+                });
+                document.querySelector('input[name="profile_pic"]').classList.remove('hidden');
+                document.querySelector('input[name="profile_pic"]').value = '';
+            } else {
+                // Disable edit mode
+                saveButtons.style.display = 'none';
+                editButton.innerHTML = '<img src="{{ asset('storage/editicon.png') }}" alt="Edit Icon" class="w-4 h-4 mr-2"> Edit Profile';
+                fields.forEach(field => field.setAttribute('disabled', 'disabled'));
+                document.querySelectorAll('img[src="{{ asset('storage/default-user.jpg') }}"]').forEach(img => {
+                    img.classList.remove('hidden');
+                });
+                document.querySelector('input[name="profile_pic"]').classList.add('hidden');
+            }
         }
 
-        const profilePicInput = document.querySelector('input[name="profile_pic"]');
-        if (profilePicInput) {
-            profilePicInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const previewContainer = document.getElementById('newProfilePicPreview');
-                    previewContainer.innerHTML = `<img src="${e.target.result}" alt="New Profile Picture" class="w-24 h-24 border-2 border-gray-300 mt-2">`;
-                };
-                reader.readAsDataURL(file);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="profile_pic"]').forEach(input => {
+                input.addEventListener('change', (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('newProfilePicPreview');
+                            preview.innerHTML = '<img src="' + e.target.result + '" alt="New Profile Picture" class="w-24 h-24 border-2 border-gray-300 mt-2">';
+                        }
+                        reader.readAsDataURL(file);
+                    }
+                });
             });
-        }
+        });
     </script>
 </body>
 </html>

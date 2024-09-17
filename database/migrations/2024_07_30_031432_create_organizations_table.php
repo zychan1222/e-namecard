@@ -9,13 +9,12 @@ class CreateOrganizationsTable extends Migration
     public function up()
     {
         Schema::create('organizations', function (Blueprint $table) {
-            $table->bigIncrements('id')->unsigned();
-            $table->unsignedBigInteger('owner_id')->nullable();
+            $table->id();
             $table->string('name');
             $table->string('logo')->nullable();
-            $table->string('address');
-            $table->string('email');
-            $table->string('phoneNo');
+            $table->string('address')->nullable();
+            $table->string('email')->nullable();
+            $table->string('phoneNo')->nullable();
             $table->timestamps();
         });
     }

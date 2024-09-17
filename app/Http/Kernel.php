@@ -47,11 +47,8 @@ class Kernel extends HttpKernel
 
     ];
     protected $routeMiddleware = [
-        'auth' => \App\Http\Middleware\RedirectIfAuthenticated::class,
-        'auth.admin' => \App\Http\Middleware\AdminAuthenticate::class,
-        'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
-        'admin' => \App\Http\Middleware\AdminMiddleware::class,
-        'check.employee.company' => \App\Http\Middleware\CheckEmployeeCompany::class,
+        'check.admin' => \App\Http\Middleware\CheckAdminRole::class,
+        'check.active' => \App\Http\Middleware\CheckUserActive::class,
         'log.session' => \App\Http\Middleware\LogSessionData::class,
     ];
     /**

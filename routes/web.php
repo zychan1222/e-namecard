@@ -30,34 +30,30 @@ Route::get('/', function () {
 
 // Admin routes
 Route::prefix('admin')->name('admin.')->group(function () {
-    Route::middleware('admin')->group(function () {
         Route::get('login', [AdminAuthController::class, 'showAdminLoginForm'])->name('login.form');
         Route::post('login', [AdminAuthController::class, 'sendTAC'])->name('login.sendTAC');
-        Route::get('login/tac', [AdminAuthController::class, 'showTACForm'])->name('login.tac.show');
-        Route::post('login/tac', [AdminAuthController::class, 'loginWithTAC'])->name('login.tac');
+        Route::get('login/tac/{email}', [AdminAuthController::class, 'showTACForm'])->name('login.tac.show');
+        Route::post('login/tac/{email}', [AdminAuthController::class, 'loginWithTAC'])->name('login.tac');
         Route::get('login/{provider}', [SocialConnectionController::class, 'redirectToProvider'])->name('social.login');
         Route::get('login/{provider}/callback', [SocialConnectionController::class, 'handleCallback']);
         Route::get('/select-organization', [AdminAuthController::class, 'showOrganizationSelectionForm'])->name('select.organization');
         Route::post('/select-organization', [AdminAuthController::class, 'selectOrganization'])->name('select.organization.submit');
-    
+});
+
+Route::prefix('admin')->name('admin.')->group(function () {    
         Route::post('update-roles', [AdminDashboardController::class, 'updateRoles'])->name('update-roles');
         Route::get('dashboard', [AdminDashboardController::class, 'showAdminDashboard'])->name('dashboard');
-        Route::get('dashboard/search', [AdminDashboardController::class, 'searchEmployees'])->name('dashboard.search');
+        Route::get('dashboard/search', [AdminDashboardController::class, 'list'])->name('employee.list');
         Route::get('organization', [OrganizationController::class, 'manageOrganization'])->name('organization');
         Route::put('organization/{organization}', [OrganizationController::class, 'update'])->name('organization.update');
         Route::get('employee/create', [EmployeeProfileController::class, 'create'])->name('employee.create');
         Route::post('employee', [EmployeeProfileController::class, 'store'])->name('employee.store');
         Route::delete('employee/{employee}', [EmployeeProfileController::class, 'destroy'])->name('employee.destroy');
-    });
-
-    Route::middleware(['admin', 'check.employee.company'])->group(function () {
         Route::get('employee/{employee}', [EmployeeProfileController::class, 'viewEmployeeProfile'])->name('employee.profile');
         Route::put('employee/{employee}/update', [EmployeeProfileController::class, 'update'])->name('employee.update');
-    });
 });
 
 // User routes
-Route::middleware('guest')->group(function () {
     // Email Registration Routes
     Route::get('register/email', [RegisterController::class, 'showEmailForm'])->name('register.email.form');
     Route::post('register/email', [RegisterController::class, 'registerEmail'])->name('register.email.store');
@@ -79,7 +75,7 @@ Route::middleware('guest')->group(function () {
     // Login Routes
     Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('login', [LoginController::class, 'sendTAC'])->name('login.sendTAC');
-    Route::get('login/tac', [LoginController::class, 'showTACForm'])->name('login.tac.show');
+    Route::get('login/tac/{email}', [LoginController::class, 'showTACForm'])->name('login.tac.show');
     Route::post('login/tac', [LoginController::class, 'loginWithTAC'])->name('login.tac');
     Route::get('select-organization', [LoginController::class, 'showOrganizationSelectionForm'])->name('select.organization');
     Route::post('select-organization', [LoginController::class, 'selectOrganization'])->name('select.organization.post');
@@ -87,7 +83,6 @@ Route::middleware('guest')->group(function () {
     Route::get('register', function () {
         return redirect()->route('register.email.form');
     })->name('register');
-});
 
 // Social login routes
 Route::prefix('login')->name('social.')->group(function () {
@@ -96,12 +91,12 @@ Route::prefix('login')->name('social.')->group(function () {
 });
 
 // Authenticated user routes
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware('check.active')->group(function () {
     Route::get('dashboard', [DashboardController::class, 'showDashboard'])->name('dashboard');
     Route::get('profile', [ProfileController::class, 'view'])->name('profile.view');
     Route::put('profile/update', [ProfileController::class, 'update'])->name('profile.update');
     Route::get('namecard', [NamecardController::class, 'showNamecard'])->name('namecard');
-    Route::get('vcard-download/{employee}', [NamecardController::class, 'showVCardDownloadPage'])->name('download.vcard.page');
+    Route::get('vcard-download/{userOrg}', [NamecardController::class, 'showVCardDownloadPage'])->name('download.vcard.page');
     Route::get('download-vcard/{name}/{phone}', [NamecardController::class, 'downloadVCard'])->name('download.vcard');
 });
 

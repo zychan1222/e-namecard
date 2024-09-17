@@ -5,23 +5,17 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterEmailRequest;
 use App\Http\Requests\RegisterOrganizationRequest;
-use App\Http\Requests\RegisterAdminRequest;
-use App\Services\UserService;
-use App\Services\EmployeeService;
-use App\Services\OrganizationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Services\RegisterService;
 
 class RegisterController extends Controller
 {
-    protected $userService;
-    protected $employeeService;
-    protected $organizationService;
+    protected $registerService;
 
-    public function __construct(UserService $userService, EmployeeService $employeeService, OrganizationService $organizationService) 
+    public function __construct(RegisterService $registerService)
     {
-        $this->userService = $userService;
-        $this->employeeService = $employeeService;
-        $this->organizationService = $organizationService;
+        $this->registerService = $registerService;
     }
 
     public function showEmailForm()
@@ -32,29 +26,11 @@ class RegisterController extends Controller
     public function registerEmail(RegisterEmailRequest $request)
     {
         $email = $request->input('email');
-        $user = $this->userService->registerEmail($email);
+        $name = $request->input('name', 'Default Name');
 
-        session(['user_id' => $user->id]);
+        $this->registerService->registerEmail($email, $name);
 
-        return redirect()->route('verify.tac.form', ['email' => $email])->with('success', 'TAC sent to your email.'); // Success message
-    }
-
-    public function verifyTAC(Request $request, $email)
-    {
-        $tac = $request->input('tac');
-    
-        if ($this->userService->verifyTAC($email, $tac)) {
-            $userId = session('user_id');
-
-            return redirect()->route('register.organization')->with('success', 'TAC verified successfully. Proceed to organization registration.'); // Success message
-        }
-    
-        return redirect()->route('verify.tac.form', ['email' => $email])->withErrors(['tac' => 'Invalid TAC.']);
-    }
-
-    public function showOrganizationForm()
-    {
-        return view('auth.organization-registration');
+        return redirect()->route('verify.tac.form', ['email' => $email])->with('success', 'TAC sent to your email.');
     }
 
     public function showTACForm($email)
@@ -62,37 +38,33 @@ class RegisterController extends Controller
         return view('auth.verify-tac', ['email' => $email]);
     }
 
-    public function registerOrganization(RegisterOrganizationRequest $request)
+    public function verifyTAC(Request $request, $email)
     {
-        $organizationData = $request->all();
-        $userId = session('user_id');
-        $employeeId = session('employee_id');
+        $tac = $request->input('tac');
 
-        $organization = $this->organizationService->registerOrganization($organizationData, $userId, $employeeId);
+        if ($this->registerService->verifyTAC($email, $tac)) {
+            $user = $this->registerService->getUserRepository()->findByEmail($email);
+            Auth::login($user);
 
-        $this->employeeService->updateEmployeeCompany($employeeId, $organization->id);
+            return redirect()->route('register.organization')->with('success', 'TAC verified successfully. Proceed to organization registration.');
+        }
 
-        session()->forget('user_id');
-        session()->forget('employee_id');
-
-        return redirect()->route('organization.created')->with('success', 'Organization registered successfully!'); // Success message
-    }    
-
-    public function showAdminRegistrationForm()
-    {
-        return redirect()->route('register.email.form');
+        return redirect()->route('verify.tac.form', ['email' => $email])->withErrors(['tac' => 'Invalid TAC or TAC expired.']);
     }
 
-    public function registerAdmin(RegisterAdminRequest $request)
+    public function showOrganizationForm()
     {
-        $adminData = $request->all();
-        $adminData['company_id'] = session('organization_id');
-        $this->organizationService->registerAdmin($adminData);
+        return view('auth.organization-registration');
+    }
 
-        session()->forget('organization_id');
-        session()->flash('success', 'Admin registered successfully!');
+    public function registerOrganization(RegisterOrganizationRequest $request)
+    {
+        $organizationData = $request->only(['name', 'email', 'address', 'phoneNo']);
+        $user = Auth::user();
 
-        return redirect()->route('organization.created');
+        $this->registerService->registerOrganization($organizationData, $user);
+
+        return redirect()->route('organization.created')->with('success', 'Organization registered successfully!');
     }
 
     public function showOrganizationCreatedPage()

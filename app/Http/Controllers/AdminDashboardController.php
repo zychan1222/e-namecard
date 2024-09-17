@@ -2,99 +2,133 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Employee;
-use App\Models\Organization;
-use App\Services\AdminDashboardService;
+use App\Models\User;
+use App\Models\UserOrganization;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AdminDashboardController extends Controller
 {
-    protected $adminDashboardService;
-
-    public function __construct(AdminDashboardService $adminDashboardService)
-    {
-        $this->adminDashboardService = $adminDashboardService;
-    }
-
     public function showAdminDashboard(Request $request)
     {
-        $adminId = $request->session()->get('admin_id');
-        $employeeId = $request->session()->get('employee_id');
+        $userOrganization = $this->getUserOrganization(Auth::id());
 
-        if ($adminId) {
-            list($admin, $employee) = $this->adminDashboardService->getAdminEmployeeDetails($adminId);
-
-            if ($employee) {
-                return $this->prepareDashboardView($employee, $admin, $adminId, $employeeId);
-            }
+        if (!$userOrganization) {
+            return redirect()->route('admin.select.organization')
+                ->withErrors(['organization_id' => 'You are not associated with any organization.']);
         }
 
-        return redirect()->route('admin.login.form');
-    }    
+        $organizationId = $userOrganization->organization_id;
+        $admins = $this->getUsersByRole($organizationId, [1, 2]);
+        $normalUsers = $this->getUsersByRole($organizationId, [3]);
 
-    protected function prepareDashboardView($employee, $admin, $adminId, $employeeId)
-    {
-        $companyId = $employee->company_id;
-        $employees = $this->adminDashboardService->fetchEmployees($companyId);
-        $modalEmployees = Employee::where('company_id', $companyId)->get();
-        $organization = Organization::find($companyId);
-        $pageTitle = 'admin.dashboard';
+        $userOrganizations = $this->getFilteredAndSortedUsers($request, $organizationId);
 
-        // Get search, sort, and filter values from the session
-        $search = session()->get('search', '');
-        $sort = session()->get('sortCriteria', 'name_asc');
-        $filterAdmin = session()->get('filter_admin', 'all');
+        $organization = $userOrganization->organization;
+        $searchMessage = $request->input('search') ? 'Showing results for: ' . $request->input('search') : '';
+        $currentQueryParams = $request->except('page');
 
-        // Generate the search message
-        $searchMessage = $this->adminDashboardService->getSearchMessage($search, $sort, $filterAdmin);
-
-        return view('admin.dashboard', compact('modalEmployees', 'employee', 'employees', 'pageTitle', 'organization', 'adminId', 'employeeId', 'admin', 'searchMessage'));
+        return view('admin.dashboard', compact(
+            'admins', 
+            'normalUsers', 
+            'userOrganizations', 
+            'organization', 
+            'searchMessage', 
+            'currentQueryParams'
+        ));
     }
-
-    public function searchEmployees(Request $request)
-    {
-        $adminId = $request->session()->get('admin_id');
-        $employeeId = $request->session()->get('employee_id');
-    
-        if (!$adminId) {
-            return redirect()->route('admin.login.form');
-        }
-    
-        if ($request->input('reset')) {
-            return response()->json($this->adminDashboardService->clearSessionFilters());
-        }
-    
-        list($admin, $employee) = $this->adminDashboardService->getAdminEmployeeDetails($adminId);
-        $filters = $this->adminDashboardService->handleSearchAndSort($request, $employee);
-        $searchMessage = $this->adminDashboardService->getSearchMessage($filters['search'], $filters['sort'], $filters['filterAdmin']);
-        session(['search_message' => $searchMessage]);
-    
-        // Fetch employees for the modal
-        $modalEmployees = Employee::where('company_id', $employee->company_id)->get();
-        $employees = $this->adminDashboardService->fetchEmployees($employee->company_id, $filters['search'], $filters['filterAdmin'], $filters['sort']);
-    
-        if ($request->ajax()) {
-            return view('partials.employee-list', compact('employees', 'modalEmployees'));
-        }
-    
-        $employees->appends(['search' => $filters['search'], 'sort' => $filters['sort'], 'filter_admin' => $filters['filterAdmin']]);
-        $pageTitle = 'admin.dashboard';
-    
-        return view('admin.dashboard', compact('employee', 'employees', 'modalEmployees', 'pageTitle', 'admin', 'searchMessage'));
-    }    
 
     public function updateRoles(Request $request)
     {
-        $roles = $request->input('roles', []);
-        $adminId = $request->session()->get('admin_id');
+        $this->validateRoleUpdates($request);
 
-        if ($adminId) {
-            list($admin, $employee) = $this->adminDashboardService->getAdminEmployeeDetails($adminId);
-            $this->adminDashboardService->updateEmployeeRoles($roles, $employee->company_id);
+        $this->applyRoleUpdates($request->input('role_updates'));
 
-            return redirect()->back()->with('success', 'Employee roles updated successfully');
+        return redirect()->route('admin.dashboard')->with('success', 'Roles updated successfully.');
+    }
+
+    protected function getUserOrganization($userId)
+    {
+        return UserOrganization::where('user_id', $userId)->first();
+    }
+
+    protected function getUsersByRole($organizationId, array $roleIds)
+    {
+        return UserOrganization::where('organization_id', $organizationId)
+            ->whereIn('role_id', $roleIds)
+            ->with('user')
+            ->get();
+    }
+
+    protected function getFilteredAndSortedUsers(Request $request, $organizationId)
+    {
+        $query = UserOrganization::where('organization_id', $organizationId)
+            ->with('user')
+            ->join('users', 'user_organization.user_id', '=', 'users.id')
+            ->select('user_organization.*', 'users.name', 'users.email');
+
+        $this->applySearchFilter($query, $request->input('search'));
+        $this->applySortFilter($query, $request->input('sort-by'));
+        $this->applyUserTypeFilter($query, $request->input('filter-user'));
+
+        return $query->paginate(10);
+    }
+
+    protected function applySearchFilter($query, $searchTerm)
+    {
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('users.name', 'like', "%{$searchTerm}%")
+                  ->orWhere('users.email', 'like', "%{$searchTerm}%");
+            });
         }
+    }
 
-        return redirect()->route('admin.login.form');
+    protected function applySortFilter($query, $sortBy)
+    {
+        switch ($sortBy) {
+            case 'name_asc':
+                $query->orderBy('users.name', 'asc');
+                break;
+            case 'name_desc':
+                $query->orderBy('users.name', 'desc');
+                break;
+            case 'email_asc':
+                $query->orderBy('users.email', 'asc');
+                break;
+            case 'email_desc':
+                $query->orderBy('users.email', 'desc');
+                break;
+            default:
+                $query->orderBy('users.name', 'asc');
+                break;
+        }
+    }
+
+    protected function applyUserTypeFilter($query, $filterUser)
+    {
+        if ($filterUser === 'admins_only') {
+            $query->whereIn('role_id', [1, 2]);
+        } elseif ($filterUser === 'non_admins') {
+            $query->where('role_id', 3);
+        }
+    }
+
+    protected function validateRoleUpdates(Request $request)
+    {
+        $request->validate([
+            'role_updates' => 'required|array',
+            'role_updates.*.user_id' => 'required|exists:users,id',
+            'role_updates.*.role_id' => 'required|in:1,2,3'
+        ]);
+    }
+
+    protected function applyRoleUpdates(array $roleUpdates)
+    {
+        foreach ($roleUpdates as $update) {
+            UserOrganization::where('user_id', $update['user_id'])
+                ->where('organization_id', Auth::user()->organization_id)
+                ->update(['role_id' => $update['role_id']]);
+        }
     }
 }

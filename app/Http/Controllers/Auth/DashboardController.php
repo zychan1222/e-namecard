@@ -3,46 +3,37 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Services\DashboardService;
+use App\Models\UserOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
-    protected $dashboardService;
-
-    public function __construct(DashboardService $dashboardService)
-    {
-        $this->dashboardService = $dashboardService;
-    }
-
     public function showDashboard()
     {
-        $employeeId = session('employee_id');
-
-        $employee = $this->dashboardService->getAuthenticatedEmployee($employeeId);
-        
-        if (!$employee) {
-            return $this->handleInvalidEmployee();
+        if (!$this->isAuthenticated()) {
+            return redirect()->route('login');
         }
 
-        return $this->showDashboardPage($employee, $employeeId);
+        $user = Auth::user();
+
+        $userOrg = UserOrganization::where('user_id', $user->id)
+            ->first();
+
+        if (!$userOrg) {
+            Log::warning('User is not associated with any organization.', ['user_id' => $user->id]);
+            return redirect()->route('login')->withErrors(['error' => 'User is not associated with any organization.']);
+        }
+
+        $organization = $userOrg->organization;
+        $pageTitle = 'Dashboard';
+
+        return view('dashboard', compact('user', 'userOrg', 'organization', 'pageTitle'));
     }
 
     protected function isAuthenticated()
     {
         return Auth::check();
-    }
-
-    protected function handleInvalidEmployee()
-    {
-        session()->forget('employee_id');
-        return redirect()->route('login');
-    }
-
-    protected function showDashboardPage($employee, $employeeId)
-    {
-        $pageTitle = 'Dashboard';
-        return view('dashboard', compact('employee', 'employeeId', 'pageTitle'));
     }
 }

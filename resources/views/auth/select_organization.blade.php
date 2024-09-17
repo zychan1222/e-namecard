@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-gray-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Select Organization</title>
+    <title>Select Organization (User)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .alert {
@@ -73,40 +73,33 @@
             {{ $errors->first() }}
         </div>
     @endif
+
     <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
         <div class="card mx-auto sm:w-full sm:max-w-sm p-8 bg-white rounded-lg shadow-md">
-            <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <div class="sm:mx-auto sm:w-full sm:max-w-sm mb-6">
                 <img class="mx-auto h-20 w-auto mb-4" src="{{ asset('storage/logo-no-bg.png') }}" alt="Your Company">
-                <h2 class="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Select Your Organization</h2>
+                <h2 class="text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Select Organization (User)</h2>
             </div>
 
-            <div class="mt-10 sm:mx-auto sm:w-full">
-                @if (session('employeeEntries') && count(session('employeeEntries')) > 0)
-                    <form action="{{ route('select.organization.post') }}" method="POST">
-                        @csrf
-                        <div class="form-group">
-                            @foreach (session('employeeEntries') as $employee)
-                                <button type="submit" name="employee_id" value="{{ $employee->id }}" class="organization-button mb-2">
-                                    <div class="organization-logo">
-                                        @if ($employee->organization)
-                                            <img src="{{ $employee->organization->logo ? asset('storage/logo/' . $employee->organization->logo) : asset('storage/default-logo.jpg') }}" alt="Organization Logo">
-                                        @else
-                                            <img src="{{ asset('storage/default-logo.jpg') }}" alt="Default Organization Logo">
-                                        @endif
-                                    </div>
-                                    <div>
-                                        {{ $employee->organization ? $employee->organization->name : 'No Organization' }}
-                                    </div>
-                                </button>
-                            @endforeach
+            <form method="POST" action="{{ route('select.organization.post') }}">
+                @csrf
+                <div class="form-group">
+                    @foreach ($userOrganizations as $userOrganization)
+                        <div class="mb-2">
+                            <input type="hidden" name="user_id" value="{{ $userOrganization->user_id }}">
+                            <input type="hidden" name="organization_id" value="{{ $userOrganization->organization_id }}">
+                            <button type="submit" class="organization-button">
+                                <div class="organization-logo">
+                                    <img src="{{ $userOrganization->organization->logo ? asset('storage/logo/' . $userOrganization->organization->logo) : asset('storage/default-logo.jpg') }}" alt="Organization Logo">
+                                </div>
+                                <div class="organization-name">
+                                    {{ $userOrganization->organization->name }}
+                                </div>
+                            </button>
                         </div>
-                    </form>
-                @else
-                    <div class="alert alert-warning" role="alert">
-                        No employee entries available.
-                    </div>
-                @endif
-            </div>
+                    @endforeach
+                </div>
+            </form>
         </div>
     </div>
 </body>

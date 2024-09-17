@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Admin;
-use App\Services\OrganizationService;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Organization;
 use App\Http\Requests\UpdateOrganizationRequest;
+use App\Services\OrganizationService;
 
 class OrganizationController extends Controller
 {
@@ -16,39 +17,37 @@ class OrganizationController extends Controller
         $this->organizationService = $organizationService;
     }
 
-    public function manageOrganization(Request $request)
+    public function manageOrganization()
     {
-        $adminId = $request->session()->get('admin_id');
-        $admin = Admin::find($adminId);
+        $user = Auth::user();
 
-        if (!$admin) {
-            return redirect()->route('admin.dashboard')->withErrors(['error' => 'Admin not found.']);
-        }
-
-        $employee = $admin->employee;
-
-        if (!$employee) {
-            return redirect()->route('admin.dashboard')->withErrors(['error' => 'Employee not found.']);
-        }
-
-        $organization = $employee->organization()->with('owner')->first();
-
-        if (!$organization) {
+        $userOrganization = $this->organizationService->getUserOrganization($user->id);
+        
+        if (!$userOrganization || !$userOrganization->organization) {
             return redirect()->route('admin.dashboard')->withErrors(['error' => 'Organization not found.']);
         }
+
+        $organization = $userOrganization->organization;
+        $ownerEmail = $this->organizationService->getOwnerEmail($organization->id);
 
         return view('admin.organization', [
             'editMode' => false,
             'organization' => $organization,
+            'ownerEmail' => $ownerEmail,
         ]);
     }
 
     public function update(UpdateOrganizationRequest $request, $organizationId)
     {
         $validatedData = $request->validated();
+        $organization = Organization::findOrFail($organizationId);
+
+        if ($request->hasFile('logo')) {
+            $validatedData['logo'] = $this->organizationService->handleLogoUpload($request->file('logo'), $organization->logo);
+        }
 
         try {
-            $this->organizationService->updateOrganization($organizationId, $validatedData);
+            $this->organizationService->updateOrganization($organization, $validatedData);
             return redirect()->route('admin.organization')
                 ->with('success', 'Organization updated successfully!');
         } catch (\Exception $e) {

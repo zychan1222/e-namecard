@@ -29,31 +29,31 @@
 <body>
 @include('partials.admin-header')
 <header class="bg-white shadow">
-<div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-    @if(session('success'))
-        <div class="alert alert-success">
-            {{ session('success') }}
-        </div>
-    @endif
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        @if(session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+        @endif
 
-    @if($errors->any())
-        <div class="alert alert-danger">
-            {{ $errors->first() }}
-        </div>
-    @endif
-    <div class="flex justify-between items-center mt-4">         
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight text-gray-900">Organization Information</h1>
-            <p class="mt-1 max-w-2xl text-sm leading-6 text-gray-500">Currently viewing the details for {{ $organization->name }}</p>    
-        </div>
-        <div class="flex space-x-4">
-            <button id="editButton" onclick="toggleEditMode()" class="flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                <img src="{{ asset('storage/editicon.png') }}" alt="Edit Icon" class="w-4 h-4 mr-2">
-                Edit Information
-            </button>
+        @if($errors->any())
+            <div class="alert alert-danger">
+                {{ $errors->first() }}
+            </div>
+        @endif
+        <div class="flex justify-between items-center mt-4">         
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-gray-900">Organization Information</h1>
+                <p class="mt-1 max-w-2xl text-sm leading-6 text-gray-500">Currently viewing the details for {{ $organization->name }}</p>    
+            </div>
+            <div class="flex space-x-4">
+                <button id="editButton" onclick="toggleEditMode()" class="flex items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    <img src="{{ asset('storage/editicon.png') }}" alt="Edit Icon" class="w-4 h-4 mr-2">
+                    Edit Information
+                </button>
+            </div>
         </div>
     </div>
-</div>
 </header>
 <div class="mt-6 border-t border-gray-100 lg:pl-20 sm:px-0">
     <form id="profileForm" action="{{ route('admin.organization.update', ['organization' => $organization->id]) }}" method="POST" enctype="multipart/form-data">
@@ -63,7 +63,7 @@
             <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt class="text-sm font-medium leading-6 text-gray-900">Logo</dt>
                 <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                    <img src="{{ $organization->logo ? asset('storage/logo/' . $organization->logo) : asset('storage/default-logo.png') }}" alt="Organization Logo" class="w-24 h-24 border-2 border-gray-300">
+                    <img src="{{ $organization->logo ? asset('storage/logo/' . $organization->logo) : asset('storage/default-logo.jpg') }}" alt="Organization Logo" class="w-24 h-24 border-2 border-gray-300">
                     <input type="file" name="logo" class="mt-2 hidden">
                     <div id="newLogoPreview" class="mt-2"></div>
                 </dd>
@@ -74,7 +74,7 @@
             </div>
             <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt class="text-sm font-medium leading-6 text-gray-900">Organization Owner</dt>
-                <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $organization->owner->user->email ?? 'No email found' }}</dd>
+                <dd class="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">{{ $ownerEmail }}</dd>
             </div>          
             <div class="px-8 py-6 lg:pl-20 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt class="text-sm font-medium leading-6 text-gray-900">Name</dt>
@@ -117,7 +117,7 @@
     </form>
 </div>
 <script>
-    let editMode = <?php echo json_encode($editMode); ?>;
+    let editMode = @json($editMode);
     console.log("Edit Mode Status:", editMode);
 
     function toggleEditMode() {

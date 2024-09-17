@@ -4,7 +4,7 @@ namespace App\Services;
 
 use Socialite;
 use App\Models\User;
-use App\Models\Employee;
+use App\Models\UserOrganization;
 use App\Repositories\SocialRepository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -34,8 +34,7 @@ class SocialConnectionService
             Log::info('Searching for user by email.', ['email' => $socialUser->email]);
     
             if (!$user) {
-                Log::info('User not found. Cannot log in.'); 
-                // Redirect back to the admin login page with a specific error message
+                Log::info('User not found. Redirecting to login page.'); 
                 return redirect()->route('admin.login.form')->withErrors(['email' => 'No user found with this email.']);
             }
     
@@ -47,12 +46,10 @@ class SocialConnectionService
             return $user; // Return user if everything is successful
         } catch (\Exception $e) {
             Log::error('Error during social login callback.', ['error' => $e->getMessage()]);
-            // Redirect back to the admin login page with a generic error message
             return redirect()->route('admin.login.form')->withErrors(['general' => 'An error occurred during login. Please try again.']);
         }
     }
-    
-    
+
     protected function ensureSocialConnectionExists($user, $socialUser, $provider)
     {
         if (!$this->socialRepository->hasSocialConnection($user->id, $socialUser->getId(), $provider)) {
@@ -61,7 +58,7 @@ class SocialConnectionService
         } else {
             Log::info('Social connection already exists for user.', ['user_id' => $user->id, 'provider' => $provider]);
         }
-    }    
+    }
 
     protected function getSocialUser($provider)
     {
@@ -69,32 +66,12 @@ class SocialConnectionService
         return Socialite::driver($provider)->stateless()->user();
     }
 
-    protected function getUser($socialUser, $provider)
+    public function getUserOrganizations($userId)
     {
-        Log::info('Searching for user by email.', ['email' => $socialUser->email]);
-        $user = $this->socialRepository->findUserByEmail($socialUser->email);
-
-        if (!$user) {
-            Log::info('User not found. Registering new user.', ['email' => $socialUser->email]);
-            $user = $this->registerUser($socialUser, $provider);
-        }
-
-        return $user; // Return user instead of employee
-    }
-
-    protected function mapSocialUserToUserData($socialUser)
-    {
-        return [
-            'name' => $socialUser->name,
-            'email' => $socialUser->email,
-            'password' => '', // No password for social login
-        ];
-    }
-
-    public function getEmployeeEntries($userId)
-    {
-        Log::info('Fetching employee entries for user.', ['user_id' => $userId]);
-        return Employee::where('user_id', $userId)->get();
+        Log::info('Fetching user organizations.', ['user_id' => $userId]);
+        return UserOrganization::where('user_id', $userId)
+            ->with('organization')
+            ->get();
     }
 
     protected function loginUser($user)

@@ -59,9 +59,9 @@
             </div>
 
             <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                <form class="space-y-6" method="POST" action="{{ route('admin.login.tac') }}">
+                <form class="space-y-6" method="POST" action="{{ route('admin.login.tac', ['email' => $email]) }}">
                     @csrf
-                    <input type="hidden" name="email" value="{{ session('email') }}">
+                    <input type="hidden" name="email" value="{{ $email }}">
                     <div>
                         <label for="tac_code" class="block text-sm font-medium leading-6 text-gray-900">TAC Code</label>
                         <div class="mt-2">

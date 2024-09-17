@@ -29,13 +29,12 @@
                     </div>
                     <div class="hidden md:flex items-center space-x-4">
                         @php
-                            $employeeId = session('employee_id');
-                            $employee = $employeeId ? \App\Models\Employee::find($employeeId) : null;
+                            $user = auth()->user();
                         @endphp
-                        @if ($employee)
+                        @if ($user)
                             <div class="text-white text-right mr-4">
-                                <span class="block text-sm font-semibold">{{ $employee->name }}</span>
-                                <span class="block text-xs">{{ $employee->designation }}</span>
+                                <span class="block text-sm font-semibold">{{ $user->name }}</span>
+                                <span class="block text-xs">{{ $user->designation }}</span>
                             </div>
                             <!-- Profile dropdown -->
                             <div class="relative">
@@ -44,7 +43,7 @@
                                     id="user-menu-button" aria-expanded="false" aria-haspopup="true">
                                     <span class="absolute -inset-1.5"></span>
                                     <span class="sr-only">Open user menu</span>
-                                    <img src="{{ $employee->profile_pic ? asset('storage/profile_pics/' . $employee->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-10 h-10 rounded-full">
+                                    <img src="{{ $user->profile_pic ? asset('storage/profile_pics/' . $user->profile_pic) : asset('storage/default-user.jpg') }}" alt="Profile Picture" class="w-10 h-10 rounded-full">
                                 </button>
                                 <!-- Dropdown menu, show/hide based on menu state -->
                                 <div id="dropdown-menu"
@@ -114,6 +113,14 @@
         // Prevent dropdown from closing when clicking inside it
         dropdownMenu.addEventListener('click', function (event) {
             event.stopPropagation();
+        });
+
+        // Toggle mobile menu
+        const mobileMenuButton = document.querySelector('[aria-controls="mobile-menu"]');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileMenuButton.addEventListener('click', function () {
+            mobileMenu.classList.toggle('hidden');
         });
     </script>
 </body>

@@ -1,9 +1,12 @@
 <?php
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\SocialConnectionService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class SocialConnectionController extends Controller
 {
@@ -27,16 +30,21 @@ class SocialConnectionController extends Controller
             return $result;
         }
     
-        // If we have a valid user, proceed with getting employee entries
+        // If we have a valid user, proceed with organization selection
         $user = $result;
+
+        // Fetch user email
+        $email = $user->email;
     
-        $employeeEntries = $this->socialConnectionService->getEmployeeEntries($user->id);
+        // Fetch organizations associated with the user
+        $userOrganizations = $this->socialConnectionService->getUserOrganizations($user->id);
     
-        session(['user_id' => $user->id]);
-        session(['employeeEntries' => $employeeEntries]);
+        if ($userOrganizations->isEmpty()) {
+            // Log and redirect if no organizations are found
+            Log::error('No organizations found for user.', ['user_id' => $user->id]);
+            return redirect()->route('admin.login.form')->withErrors(['general' => 'No organizations found.']);
+        }
     
-        return redirect()->route('admin.select.organization')->with(['email' => $user->email]);
+        return redirect()->route('admin.select.organization', ['email' => $email]);
     }
-    
-    
 }

@@ -2,22 +2,30 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Organization extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'address', 'email', 'phoneNo', 'owner_id', 'logo'];
+    protected $fillable = [
+        'owner_id',
+        'name',
+        'logo',
+        'address',
+        'email',
+        'phoneNo',
+    ];
 
-    public function employees()
+    public function users(): BelongsToMany
     {
-        return $this->hasMany(Employee::class, 'company_id');
+        return $this->belongsToMany(User::class, 'user_organization');
     }
 
-    public function owner()
+    public function roles()
     {
-        return $this->belongsTo(Employee::class, 'owner_id');
-    }        
+        return $this->belongsToMany(Role::class, 'user_organization', 'organization_id', 'role_id');
+    }
 }
